@@ -14,6 +14,10 @@ if parent:FindFirstChild("ProjectHub") then
     parent.ProjectHub:Destroy()
 end
 
+local FONT_REGULAR = Enum.Font.SourceSans
+local FONT_BOLD = Enum.Font.SourceSansBold
+local FONT_SEMIBOLD = Enum.Font.SourceSansSemibold
+
 local function create(className, properties)
     local inst = Instance.new(className)
     for i, v in pairs(properties) do
@@ -64,7 +68,7 @@ local title = create("TextLabel", {
     Text = "Project Hub",
     TextColor3 = Color3.fromRGB(255, 255, 255),
     TextSize = 14,
-    Font = Enum.Font.GothamBold,
+    Font = FONT_BOLD,
     TextXAlignment = Enum.TextXAlignment.Left,
     Parent = topBar
 })
@@ -76,7 +80,7 @@ local closeBtn = create("TextButton", {
     Text = "×",
     TextColor3 = Color3.fromRGB(200, 200, 200),
     TextSize = 22,
-    Font = Enum.Font.Gotham,
+    Font = FONT_REGULAR,
     Parent = topBar
 })
 
@@ -87,7 +91,7 @@ local minBtn = create("TextButton", {
     Text = "-",
     TextColor3 = Color3.fromRGB(200, 200, 200),
     TextSize = 22,
-    Font = Enum.Font.Gotham,
+    Font = FONT_REGULAR,
     Parent = topBar
 })
 
@@ -201,7 +205,7 @@ function library:CreateTab(name)
         BorderSizePixel = 0,
         Text = name,
         TextColor3 = Color3.fromRGB(170, 170, 170),
-        Font = Enum.Font.Gotham,
+        Font = FONT_REGULAR,
         TextSize = 13,
         Parent = tabContainer
     })
@@ -264,7 +268,7 @@ function library:CreateTab(name)
             BackgroundColor3 = Color3.fromRGB(35, 35, 40),
             Text = text,
             TextColor3 = Color3.fromRGB(220, 220, 220),
-            Font = Enum.Font.Gotham,
+            Font = FONT_REGULAR,
             TextSize = 13,
             AutoButtonColor = false,
             Parent = page
@@ -292,7 +296,7 @@ function library:CreateTab(name)
             Text = "   " .. text,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextColor3 = Color3.fromRGB(220, 220, 220),
-            Font = Enum.Font.Gotham,
+            Font = FONT_REGULAR,
             TextSize = 13,
             AutoButtonColor = false,
             Parent = page
@@ -349,7 +353,7 @@ function library:CreateTab(name)
             BackgroundTransparency = 1,
             Text = text,
             TextColor3 = Color3.fromRGB(220, 220, 220),
-            Font = Enum.Font.Gotham,
+            Font = FONT_REGULAR,
             TextSize = 13,
             TextXAlignment = Enum.TextXAlignment.Left,
             Parent = sliderFrame
@@ -361,7 +365,7 @@ function library:CreateTab(name)
             BackgroundTransparency = 1,
             Text = tostring(val),
             TextColor3 = library.themeColor,
-            Font = Enum.Font.GothamBold,
+            Font = FONT_BOLD,
             TextSize = 13,
             TextXAlignment = Enum.TextXAlignment.Right,
             Parent = sliderFrame
@@ -427,7 +431,7 @@ function library:CreateTab(name)
             BackgroundTransparency = 1,
             Text = "   " .. text,
             TextColor3 = Color3.fromRGB(220, 220, 220),
-            Font = Enum.Font.Gotham,
+            Font = FONT_REGULAR,
             TextSize = 13,
             TextXAlignment = Enum.TextXAlignment.Left,
             Parent = cpFrame
@@ -451,7 +455,7 @@ function library:CreateTab(name)
 
         local function createRgbSlider(name, colorVal, barColor)
             local sFrame = create("Frame", {Size = UDim2.new(1, 0, 0, 20), BackgroundTransparency = 1, Parent = sliderContainer})
-            local lName = create("TextLabel", {Size = UDim2.new(0, 15, 1, 0), BackgroundTransparency = 1, Text = name, TextColor3 = Color3.fromRGB(200, 200, 200), Font = Enum.Font.GothamBold, TextSize = 12, Parent = sFrame})
+            local lName = create("TextLabel", {Size = UDim2.new(0, 15, 1, 0), BackgroundTransparency = 1, Text = name, TextColor3 = Color3.fromRGB(200, 200, 200), Font = FONT_BOLD, TextSize = 12, Parent = sFrame})
             local sBar = create("TextButton", {Size = UDim2.new(1, -25, 0, 6), Position = UDim2.new(0, 25, 0.5, -3), BackgroundColor3 = Color3.fromRGB(25, 25, 30), Text = "", AutoButtonColor = false, Parent = sFrame})
             create("UICorner", {CornerRadius = UDim.new(1, 0), Parent = sBar})
             local sFill = create("Frame", {Size = UDim2.new(colorVal / 255, 0, 1, 0), BackgroundColor3 = barColor, Parent = sBar})
@@ -490,7 +494,7 @@ function library:CreateTab(name)
             BackgroundTransparency = 1,
             Text = text,
             TextColor3 = Color3.fromRGB(150, 150, 150),
-            Font = Enum.Font.GothamBold,
+            Font = FONT_BOLD,
             TextSize = 11,
             TextXAlignment = Enum.TextXAlignment.Left,
             Parent = page
@@ -526,7 +530,7 @@ local greetLabel = create("TextLabel", {
     BackgroundTransparency = 1,
     Text = "Hello, " .. lp.Name .. "!",
     TextColor3 = Color3.fromRGB(255, 255, 255),
-    Font = Enum.Font.GothamBold,
+    Font = FONT_BOLD,
     TextSize = 16,
     TextXAlignment = Enum.TextXAlignment.Left,
     Parent = pInfoFrame
@@ -538,7 +542,7 @@ local placeLabel = create("TextLabel", {
     BackgroundTransparency = 1,
     Text = "Loading...",
     TextColor3 = Color3.fromRGB(170, 170, 170),
-    Font = Enum.Font.Gotham,
+    Font = FONT_REGULAR,
     TextSize = 12,
     TextXAlignment = Enum.TextXAlignment.Left,
     Parent = pInfoFrame
@@ -563,7 +567,7 @@ local fpsLabel = create("TextLabel", {
     BackgroundTransparency = 1,
     Text = "FPS: 0",
     TextColor3 = library.themeColor,
-    Font = Enum.Font.GothamBold,
+    Font = FONT_BOLD,
     TextSize = 13,
     Parent = statsFrame
 })
@@ -575,7 +579,7 @@ local pingLabel = create("TextLabel", {
     BackgroundTransparency = 1,
     Text = "Ping: 0ms",
     TextColor3 = Color3.fromRGB(220, 220, 220),
-    Font = Enum.Font.GothamBold,
+    Font = FONT_BOLD,
     TextSize = 13,
     Parent = statsFrame
 })
@@ -586,7 +590,7 @@ local timeLabel = create("TextLabel", {
     BackgroundTransparency = 1,
     Text = "00:00",
     TextColor3 = Color3.fromRGB(220, 220, 220),
-    Font = Enum.Font.GothamBold,
+    Font = FONT_BOLD,
     TextSize = 13,
     Parent = statsFrame
 })
@@ -624,17 +628,53 @@ lp.Idled:Connect(function()
 end)
 
 playerTab:AddSection("Movement")
-playerTab:AddSlider("WalkSpeed", 16, 250, 16, function(val)
-    if lp.Character and lp.Character:FindFirstChild("Humanoid") then
-        lp.Character.Humanoid.WalkSpeed = val
+
+local savedWalkSpeed = 16
+local savedJumpPower = 50
+
+local SMOOTH_RATE = 8
+
+local function applyMovementSettings(character)
+    local humanoid = character:WaitForChild("Humanoid", 5)
+    if not humanoid then return end
+    humanoid.WalkSpeed = savedWalkSpeed
+    humanoid.UseJumpPower = true
+    humanoid.JumpPower = savedJumpPower
+end
+
+lp.CharacterAdded:Connect(applyMovementSettings)
+if lp.Character then
+    applyMovementSettings(lp.Character)
+end
+
+rs.Heartbeat:Connect(function(dt)
+    local character = lp.Character
+    if not character then return end
+
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+
+    if not humanoid.UseJumpPower then
+        humanoid.UseJumpPower = true
+    end
+
+    local alpha = math.clamp(dt * SMOOTH_RATE, 0, 1)
+
+    if math.abs(humanoid.WalkSpeed - savedWalkSpeed) > 0.05 then
+        humanoid.WalkSpeed = humanoid.WalkSpeed + (savedWalkSpeed - humanoid.WalkSpeed) * alpha
+    end
+
+    if math.abs(humanoid.JumpPower - savedJumpPower) > 0.05 then
+        humanoid.JumpPower = humanoid.JumpPower + (savedJumpPower - humanoid.JumpPower) * alpha
     end
 end)
 
+playerTab:AddSlider("WalkSpeed", 16, 250, 16, function(val)
+    savedWalkSpeed = val
+end)
+
 playerTab:AddSlider("JumpPower", 50, 500, 50, function(val)
-    if lp.Character and lp.Character:FindFirstChild("Humanoid") then
-        lp.Character.Humanoid.UseJumpPower = true
-        lp.Character.Humanoid.JumpPower = val
-    end
+    savedJumpPower = val
 end)
 
 playerTab:AddSection("Camera")
