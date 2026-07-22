@@ -364,4 +364,20 @@ function library:CreateTab(name)
     return elements
 end
 
+local SettingsTab = library:CreateTab("Settings")
+
+SettingsTab:AddSection("Внешний вид")
+
+SettingsTab:AddButton("Тема: Зеленый неон", function()
+    library:UpdateTheme(Color3.fromRGB(50, 255, 100))
+end)
+
+SettingsTab:AddButton("Тема: Огненный красный", function()
+    library:UpdateTheme(Color3.fromRGB(255, 75, 75))
+end)
+
+SettingsTab:AddButton("Тема: Классический синий", function()
+    library:UpdateTheme(Color3.fromRGB(115, 135, 255))
+end)
+
 return library
