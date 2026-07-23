@@ -664,65 +664,93 @@ playerTab:AddToggle("Noclip", function(state)
     end
 end)
 
-local flyEnabled  = false
-local flyVelocity = nil
-local flyGyro     = nil
-local flySpeed    = 60
+local MAX_SPEED = 18.5
+local VERT_SPEED = 30
+local toiletFlyConn = nil
 
 local function startFly()
     local character = lp.Character
     if not character then return end
     local hrp = character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-
-    flyGyro = Instance.new("BodyGyro")
-    flyGyro.MaxTorque = Vector3.new(9e8, 9e8, 9e8)
-    flyGyro.P = 9e4
-    flyGyro.CFrame = workspace.CurrentCamera.CFrame
-    flyGyro.Parent = hrp
-
-    flyVelocity = Instance.new("BodyVelocity")
-    flyVelocity.Velocity = Vector3.zero
-    flyVelocity.MaxForce = Vector3.new(9e8, 9e8, 9e8)
-    flyVelocity.Parent = hrp
-
     local humanoid = character:FindFirstChildOfClass("Humanoid")
-    if humanoid then humanoid:ChangeState(Enum.HumanoidStateType.Physics) end
+    if not hrp or not humanoid then return end
+
+    for _, v in ipairs(hrp:GetChildren()) do
+        if v:IsA("BodyMover") or v:IsA("Constraint") then v:Destroy() end
+    end
+
+    humanoid.PlatformStand = true
+
+    if toiletFlyConn then toiletFlyConn:Disconnect() end
+
+    toiletFlyConn = rs.Heartbeat:Connect(function()
+        if not flyEnabled then return end
+
+        humanoid.Sit = true
+
+        local cam = workspace.CurrentCamera
+        local moveDir = Vector3.zero
+
+        if uis:IsKeyDown(Enum.KeyCode.W) then moveDir += cam.CFrame.LookVector end
+        if uis:IsKeyDown(Enum.KeyCode.S) then moveDir -= cam.CFrame.LookVector end
+        if uis:IsKeyDown(Enum.KeyCode.A) then moveDir -= cam.CFrame.RightVector end
+        if uis:IsKeyDown(Enum.KeyCode.D) then moveDir += cam.CFrame.RightVector end
+
+        local hzMove = Vector3.new(moveDir.X, 0, moveDir.Z)
+        if hzMove.Magnitude > 0 then
+            hzMove = hzMove.Unit * MAX_SPEED
+        end
+
+        local vtVel = 0
+        if uis:IsKeyDown(Enum.KeyCode.Space) then vtVel = VERT_SPEED end
+        if uis:IsKeyDown(Enum.KeyCode.LeftControl) then vtVel = -VERT_SPEED end
+
+        if hzMove.Magnitude == 0 and vtVel == 0 then
+            vtVel = math.sin(tick() * 10) * 0.1
+        end
+
+        hrp.AssemblyLinearVelocity = Vector3.new(hzMove.X, vtVel, hzMove.Z)
+        hrp.RotVelocity = Vector3.zero
+        hrp.CFrame = hrp.CFrame * CFrame.Angles(0, 0.0001, 0)
+    end)
 end
 
 local function stopFly()
-    if flyVelocity then flyVelocity:Destroy(); flyVelocity = nil end
-    if flyGyro     then flyGyro:Destroy();     flyGyro     = nil end
+    if toiletFlyConn then
+        toiletFlyConn:Disconnect()
+        toiletFlyConn = nil
+    end
+
     local character = lp.Character
     if not character then return end
     local humanoid = character:FindFirstChildOfClass("Humanoid")
-    if humanoid then humanoid:ChangeState(Enum.HumanoidStateType.GettingUp) end
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+
+    if humanoid then
+        humanoid.Sit = false
+        humanoid.PlatformStand = false
+        humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+    end
+
+    if hrp then
+        hrp.AssemblyLinearVelocity = Vector3.zero
+    end
 end
 
-rs.RenderStepped:Connect(function()
-    if not flyEnabled or not flyVelocity or not flyGyro then return end
-    local cam = workspace.CurrentCamera
-    local dir = Vector3.zero
-    if uis:IsKeyDown(Enum.KeyCode.W)            then dir += cam.CFrame.LookVector  end
-    if uis:IsKeyDown(Enum.KeyCode.S)            then dir -= cam.CFrame.LookVector  end
-    if uis:IsKeyDown(Enum.KeyCode.A)            then dir -= cam.CFrame.RightVector end
-    if uis:IsKeyDown(Enum.KeyCode.D)            then dir += cam.CFrame.RightVector end
-    if uis:IsKeyDown(Enum.KeyCode.Space)        then dir += Vector3.yAxis          end
-    if uis:IsKeyDown(Enum.KeyCode.LeftControl)  then dir -= Vector3.yAxis          end
-    flyVelocity.Velocity = dir.Magnitude > 0 and dir.Unit * flySpeed or Vector3.zero
-    flyGyro.CFrame = cam.CFrame
-end)
-
-lp.CharacterAdded:Connect(function()
+lp.CharacterAdded:Connect(function(newChar)
     if flyEnabled then
         task.wait(0.5)
         startFly()
     end
 end)
 
-playerTab:AddToggle("Fly  (WASD + Space / Ctrl)", function(state)
+playerTab:AddToggle("Fly", function(state)
     flyEnabled = state
-    if state then startFly() else stopFly() end
+    if state then 
+        startFly() 
+    else 
+        stopFly() 
+    end
 end)
 
 settingsTab:AddSection("UI Customization")
