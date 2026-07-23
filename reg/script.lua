@@ -10,8 +10,17 @@ local vu = game:GetService("VirtualUser")
 local lp = players.LocalPlayer
 local parent = (gethui and gethui()) or (cg:FindFirstChild("RobloxGui") and cg) or lp:WaitForChild("PlayerGui")
 
-if parent:FindFirstChild("ProjectHub") then
-    parent.ProjectHub:Destroy()
+for _, v in ipairs(parent:GetChildren()) do
+    if v.Name == "ProjectHub" then
+        v:Destroy()
+    end
+end
+if gethui then
+    for _, v in ipairs(gethui():GetChildren()) do
+        if v.Name == "ProjectHub" then
+            v:Destroy()
+        end
+    end
 end
 
 local fontRegular = Enum.Font.SourceSans
