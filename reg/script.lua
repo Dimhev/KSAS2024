@@ -29,6 +29,17 @@ local gui = create("ScreenGui", {
     Parent = parent
 })
 
+local _connections = {}
+local function addConn(conn)
+    table.insert(_connections, conn)
+    return conn
+end
+gui.Destroying:Connect(function()
+    for _, c in pairs(_connections) do
+        if c.Disconnect then c:Disconnect() end
+    end
+end)
+
 local mainFrame = create("Frame", {
     Size = UDim2.new(0, 560, 0, 400),
     Position = UDim2.new(0.5, -280, 0.5, -200),
@@ -105,7 +116,7 @@ local pageContainer = create("Frame", {
 })
 
 local dragging, dragInput, dragStart, startPos
-topBar.InputBegan:Connect(function(input)
+addConn(topBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
         dragging = true
         dragStart = input.Position
@@ -114,35 +125,35 @@ topBar.InputBegan:Connect(function(input)
             if input.UserInputState == Enum.UserInputState.End then dragging = false end
         end)
     end
-end)
-topBar.InputChanged:Connect(function(input)
+end))
+addConn(topBar.InputChanged:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end
-end)
-uis.InputChanged:Connect(function(input)
+end))
+addConn(uis.InputChanged:Connect(function(input)
     if input == dragInput and dragging then
         local delta = input.Position - dragStart
         mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
-end)
+end))
 
 local isMinimized = false
-minBtn.MouseButton1Click:Connect(function()
+addConn(minBtn.MouseButton1Click:Connect(function()
     isMinimized = not isMinimized
     ts:Create(mainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {
         Size = UDim2.new(0, 560, 0, isMinimized and 38 or 400)
     }):Play()
-end)
-closeBtn.MouseButton1Click:Connect(function() gui:Destroy() end)
-uis.InputBegan:Connect(function(input, gp)
+end))
+addConn(closeBtn.MouseButton1Click:Connect(function() gui:Destroy() end))
+addConn(uis.InputBegan:Connect(function(input, gp)
     if not gp and input.KeyCode == Enum.KeyCode.RightShift then
         gui.Enabled = not gui.Enabled
     end
-end)
+end))
 
-closeBtn.MouseEnter:Connect(function() ts:Create(closeBtn, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(255, 75, 75)}):Play() end)
-closeBtn.MouseLeave:Connect(function() ts:Create(closeBtn, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(200, 200, 200)}):Play() end)
-minBtn.MouseEnter:Connect(function() ts:Create(minBtn, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(255, 255, 255)}):Play() end)
-minBtn.MouseLeave:Connect(function() ts:Create(minBtn, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(200, 200, 200)}):Play() end)
+addConn(closeBtn.MouseEnter:Connect(function() ts:Create(closeBtn, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(255, 75, 75)}):Play() end))
+addConn(closeBtn.MouseLeave:Connect(function() ts:Create(closeBtn, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(200, 200, 200)}):Play() end))
+addConn(minBtn.MouseEnter:Connect(function() ts:Create(minBtn, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(255, 255, 255)}):Play() end))
+addConn(minBtn.MouseLeave:Connect(function() ts:Create(minBtn, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(200, 200, 200)}):Play() end))
 
 local library = {
     themeColor = Color3.fromRGB(115, 135, 255),
@@ -158,6 +169,7 @@ function library:UpdateTheme(color)
     for _, tab in pairs(self.tabs) do
         if tab.page.Visible then
             ts:Create(tab.btn, TweenInfo.new(0.3), {TextColor3 = color}):Play()
+            ts:Create(tab.indicator, TweenInfo.new(0.3), {BackgroundColor3 = color}):Play()
         end
     end
     for indicator, state in pairs(self.activeToggles) do
@@ -181,12 +193,23 @@ function library:CreateTab(name)
         BackgroundColor3 = Color3.fromRGB(28, 28, 33),
         BorderSizePixel = 0,
         LayoutOrder = order,
-        Text = name,
+        Text = "  " .. name,
         TextColor3 = Color3.fromRGB(170, 170, 170),
         Font = fontRegular,
         TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left,
         Parent = tabContainer
     })
+    
+    local activeIndicator = create("Frame", {
+        Size = UDim2.new(0, 3, 1, -16),
+        Position = UDim2.new(0, 0, 0, 8),
+        BackgroundColor3 = library.themeColor,
+        BorderSizePixel = 0,
+        BackgroundTransparency = 1,
+        Parent = tabBtn
+    })
+    create("UICorner", {CornerRadius = UDim.new(1, 0), Parent = activeIndicator})
 
     local page = create("ScrollingFrame", {
         Size = UDim2.new(1, 0, 1, 0),
@@ -199,7 +222,7 @@ function library:CreateTab(name)
 
     local layout = create("UIListLayout", {
         SortOrder = Enum.SortOrder.LayoutOrder,
-        Padding = UDim.new(0, 10),
+        Padding = UDim.new(0, 16), 
         Parent = page
     })
     create("UIPadding", {
@@ -210,30 +233,36 @@ function library:CreateTab(name)
         Parent = page
     })
 
-    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    addConn(layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         page.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 20)
-    end)
+    end))
 
-    tabBtn.MouseButton1Click:Connect(function()
+    addConn(tabBtn.MouseButton1Click:Connect(function()
         for _, t in pairs(library.tabs) do
             t.page.Visible = false
             ts:Create(t.btn, TweenInfo.new(0.3), {
                 TextColor3 = Color3.fromRGB(170, 170, 170),
                 BackgroundColor3 = Color3.fromRGB(28, 28, 33)
             }):Play()
+            t.btn.Font = fontRegular
+            ts:Create(t.indicator, TweenInfo.new(0.3), {BackgroundTransparency = 1}):Play()
         end
         page.Visible = true
         ts:Create(tabBtn, TweenInfo.new(0.3), {
             TextColor3 = library.themeColor,
             BackgroundColor3 = Color3.fromRGB(35, 35, 42)
         }):Play()
-    end)
+        tabBtn.Font = fontBold
+        ts:Create(activeIndicator, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
+    end))
 
-    table.insert(library.tabs, {btn = tabBtn, page = page})
+    table.insert(library.tabs, {btn = tabBtn, page = page, indicator = activeIndicator})
     if #library.tabs == 1 then
         page.Visible = true
         tabBtn.TextColor3 = library.themeColor
         tabBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
+        tabBtn.Font = fontBold
+        activeIndicator.BackgroundTransparency = 0
     end
 
     local elements = {page = page}
@@ -250,20 +279,20 @@ function library:CreateTab(name)
             Parent = page
         })
         create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = btn})
-        btn.MouseEnter:Connect(function() ts:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(42, 42, 48)}):Play() end)
-        btn.MouseLeave:Connect(function() ts:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 35, 40)}):Play() end)
-        btn.MouseButton1Click:Connect(function()
+        addConn(btn.MouseEnter:Connect(function() ts:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(42, 42, 48)}):Play() end))
+        addConn(btn.MouseLeave:Connect(function() ts:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 35, 40)}):Play() end))
+        addConn(btn.MouseButton1Click:Connect(function()
             local tw = ts:Create(btn, TweenInfo.new(0.1), {Size = UDim2.new(0.97, 0, 0, 38)})
             tw:Play(); tw.Completed:Wait()
             ts:Create(btn, TweenInfo.new(0.1), {Size = UDim2.new(1, 0, 0, 42)}):Play()
             if callback then callback() end
-        end)
+        end))
     end
 
     function elements:AddToggle(text, callback)
         local state = false
         local toggleFrame = create("TextButton", {
-            Size = UDim2.new(1, 0, 0, 42),
+            Size = UDim2.new(1, 0, 0, 48),
             BackgroundColor3 = Color3.fromRGB(35, 35, 40),
             Text = "   " .. text,
             TextXAlignment = Enum.TextXAlignment.Left,
@@ -276,31 +305,31 @@ function library:CreateTab(name)
         create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = toggleFrame})
 
         local indicatorBg = create("Frame", {
-            Size = UDim2.new(0, 40, 0, 20),
-            Position = UDim2.new(1, -50, 0.5, -10),
+            Size = UDim2.new(0, 48, 0, 24), 
+            Position = UDim2.new(1, -58, 0.5, -12),
             BackgroundColor3 = Color3.fromRGB(25, 25, 30),
             Parent = toggleFrame
         })
         create("UICorner", {CornerRadius = UDim.new(1, 0), Parent = indicatorBg})
 
         local indicator = create("Frame", {
-            Size = UDim2.new(0, 16, 0, 16),
-            Position = UDim2.new(0, 2, 0.5, -8),
+            Size = UDim2.new(0, 20, 0, 20), 
+            Position = UDim2.new(0, 2, 0.5, -10),
             BackgroundColor3 = Color3.fromRGB(100, 100, 100),
             Parent = indicatorBg
         })
         create("UICorner", {CornerRadius = UDim.new(1, 0), Parent = indicator})
         library.activeToggles[indicator] = state
 
-        toggleFrame.MouseButton1Click:Connect(function()
+        addConn(toggleFrame.MouseButton1Click:Connect(function()
             state = not state
             library.activeToggles[indicator] = state
             ts:Create(indicator, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-                Position = state and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8),
+                Position = state and UDim2.new(1, -22, 0.5, -10) or UDim2.new(0, 2, 0.5, -10),
                 BackgroundColor3 = state and library.themeColor or Color3.fromRGB(100, 100, 100)
             }):Play()
             if callback then callback(state) end
-        end)
+        end))
     end
 
     function elements:AddSlider(text, min, max, default, callback)
@@ -356,13 +385,13 @@ function library:CreateTab(name)
         table.insert(library.themeObjects, fill)
 
         local isDragging = false
-        bgBar.InputBegan:Connect(function(input)
+        addConn(bgBar.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 then isDragging = true end
-        end)
-        uis.InputEnded:Connect(function(input)
+        end))
+        addConn(uis.InputEnded:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 then isDragging = false end
-        end)
-        uis.InputChanged:Connect(function(input)
+        end))
+        addConn(uis.InputChanged:Connect(function(input)
             if isDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
                 local pct = math.clamp((input.Position.X - bgBar.AbsolutePosition.X) / bgBar.AbsoluteSize.X, 0, 1)
                 val = math.floor(min + (max - min) * pct)
@@ -370,7 +399,7 @@ function library:CreateTab(name)
                 ts:Create(fill, TweenInfo.new(0.1), {Size = UDim2.new(pct, 0, 1, 0)}):Play()
                 if callback then callback(val) end
             end
-        end)
+        end))
     end
 
     function elements:AddColorPicker(text, defaultColor, callback)
@@ -407,6 +436,7 @@ function library:CreateTab(name)
             Parent = cpFrame
         })
         create("UIListLayout", {Padding = UDim.new(0, 8), Parent = sliderContainer})
+        
         local function createRgbSlider(name, colorVal, barColor)
             local sFrame = create("Frame", {Size = UDim2.new(1, 0, 0, 20), BackgroundTransparency = 1, Parent = sliderContainer})
             create("TextLabel", {Size = UDim2.new(0, 16, 1, 0), BackgroundTransparency = 1, Text = name, TextColor3 = Color3.fromRGB(200, 200, 200), Font = fontBold, TextSize = 13, Parent = sFrame})
@@ -415,9 +445,9 @@ function library:CreateTab(name)
             local sFill = create("Frame", {Size = UDim2.new(colorVal / 255, 0, 1, 0), BackgroundColor3 = barColor, Parent = sBar})
             create("UICorner", {CornerRadius = UDim.new(1, 0), Parent = sFill})
             local dragging = false
-            sBar.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end end)
-            uis.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
-            uis.InputChanged:Connect(function(input)
+            addConn(sBar.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end end))
+            addConn(uis.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end))
+            addConn(uis.InputChanged:Connect(function(input)
                 if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
                     local pct = math.clamp((input.Position.X - sBar.AbsolutePosition.X) / sBar.AbsoluteSize.X, 0, 1)
                     sFill.Size = UDim2.new(pct, 0, 1, 0)
@@ -427,15 +457,15 @@ function library:CreateTab(name)
                     colorPreview.BackgroundColor3 = nc
                     if callback then callback(nc) end
                 end
-            end)
+            end))
         end
         createRgbSlider("R", r, Color3.fromRGB(255, 75, 75))
         createRgbSlider("G", g, Color3.fromRGB(75, 255, 75))
         createRgbSlider("B", b, Color3.fromRGB(75, 125, 255))
-        cpBtn.MouseButton1Click:Connect(function()
+        addConn(cpBtn.MouseButton1Click:Connect(function()
             expanded = not expanded
             ts:Create(cpFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {Size = UDim2.new(1, 0, 0, expanded and 150 or 42)}):Play()
-        end)
+        end))
     end
 
     function elements:AddSection(text)
@@ -459,20 +489,16 @@ local homeTab     = library:CreateTab("Home")
 local playerTab   = library:CreateTab("Player")
 local settingsTab = library:CreateTab("Settings")
 
--- [[ Main Tab ]]
--- вкладка пока пустая, здесь будет основная логика проекта
--- место под модули: teleport, esp-список, статус читов и т.п.
-
 -- [[ Home Tab ]]
 local pInfoFrame = create("Frame", {
-    Size = UDim2.new(1, 0, 0, 92),
+    Size = UDim2.new(1, 0, 0, 100), 
     BackgroundColor3 = Color3.fromRGB(35, 35, 40),
     Parent = homeTab.page
 })
 create("UICorner", {CornerRadius = UDim.new(0, 8), Parent = pInfoFrame})
 
 local avatar = create("ImageLabel", {
-    Size = UDim2.new(0, 72, 0, 72),
+    Size = UDim2.new(0, 80, 0, 80), 
     Position = UDim2.new(0, 10, 0, 10),
     BackgroundColor3 = Color3.fromRGB(25, 25, 30),
     Image = players:GetUserThumbnailAsync(lp.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420),
@@ -481,8 +507,8 @@ local avatar = create("ImageLabel", {
 create("UICorner", {CornerRadius = UDim.new(1, 0), Parent = avatar})
 
 create("TextLabel", {
-    Size = UDim2.new(1, -100, 0, 22),
-    Position = UDim2.new(0, 92, 0, 16),
+    Size = UDim2.new(1, -110, 0, 22),
+    Position = UDim2.new(0, 100, 0, 20),
     BackgroundTransparency = 1,
     Text = "Hello, " .. lp.Name .. "!",
     TextColor3 = Color3.fromRGB(255, 255, 255),
@@ -493,8 +519,8 @@ create("TextLabel", {
 })
 
 local placeLabel = create("TextLabel", {
-    Size = UDim2.new(1, -100, 0, 16),
-    Position = UDim2.new(0, 92, 0, 44),
+    Size = UDim2.new(1, -110, 0, 16),
+    Position = UDim2.new(0, 100, 0, 48),
     BackgroundTransparency = 1,
     Text = "Loading...",
     TextColor3 = Color3.fromRGB(170, 170, 170),
@@ -507,48 +533,47 @@ task.spawn(function()
     pcall(function() placeLabel.Text = mps:GetProductInfo(game.PlaceId).Name end)
 end)
 
-local statsFrame = create("Frame", {
-    Size = UDim2.new(1, 0, 0, 58),
-    BackgroundColor3 = Color3.fromRGB(35, 35, 40),
+local statsContainer = create("Frame", {
+    Size = UDim2.new(1, 0, 0, 48),
+    BackgroundTransparency = 1,
     Parent = homeTab.page
 })
-create("UICorner", {CornerRadius = UDim.new(0, 8), Parent = statsFrame})
-
-local fpsLabel = create("TextLabel", {
-    Size = UDim2.new(0.33, 0, 1, 0),
-    BackgroundTransparency = 1,
-    Text = "FPS: 0",
-    TextColor3 = library.themeColor,
-    Font = fontBold, TextSize = 14,
-    Parent = statsFrame
-})
-table.insert(library.themeObjects, fpsLabel)
-
-local pingLabel = create("TextLabel", {
-    Size = UDim2.new(0.33, 0, 1, 0),
-    Position = UDim2.new(0.33, 0, 0, 0),
-    BackgroundTransparency = 1,
-    Text = "Ping: 0ms",
-    TextColor3 = Color3.fromRGB(220, 220, 220),
-    Font = fontBold, TextSize = 14,
-    Parent = statsFrame
+create("UIListLayout", {
+    FillDirection = Enum.FillDirection.Horizontal, 
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Padding = UDim.new(0, 8), 
+    Parent = statsContainer 
 })
 
-local timeLabel = create("TextLabel", {
-    Size = UDim2.new(0.34, 0, 1, 0),
-    Position = UDim2.new(0.66, 0, 0, 0),
-    BackgroundTransparency = 1,
-    Text = "00:00",
-    TextColor3 = Color3.fromRGB(220, 220, 220),
-    Font = fontBold, TextSize = 14,
-    Parent = statsFrame
-})
+local function createStatBlock(text, isThemeColor)
+    local block = create("Frame", {
+        Size = UDim2.new(0.33, -5, 1, 0),
+        BackgroundColor3 = Color3.fromRGB(35, 35, 40),
+        Parent = statsContainer
+    })
+    create("UICorner", {CornerRadius = UDim.new(0, 8), Parent = block})
+    local label = create("TextLabel", {
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        Text = text,
+        TextColor3 = isThemeColor and library.themeColor or Color3.fromRGB(220, 220, 220),
+        Font = fontBold, TextSize = 14,
+        Parent = block
+    })
+    if isThemeColor then table.insert(library.themeObjects, label) end
+    return label
+end
+
+local fpsLabel = createStatBlock("FPS: 0", true)
+local pingLabel = createStatBlock("Ping: 0ms", false)
+local timeLabel = createStatBlock("00:00", false)
 
 local startTime = os.time()
 local frames = 0
-rs.RenderStepped:Connect(function() frames += 1 end)
+addConn(rs.RenderStepped:Connect(function() frames += 1 end))
 task.spawn(function()
     while task.wait(1) do
+        if not gui.Parent then break end -- Останавливаем цикл при удалении
         fpsLabel.Text = "FPS: " .. frames
         frames = 0
         local diff = os.time() - startTime
@@ -564,21 +589,22 @@ homeTab:AddSection("Modules")
 homeTab:AddToggle("Anti-AFK", function(state)
     getgenv().AntiAfkEnabled = state
 end)
-lp.Idled:Connect(function()
+addConn(lp.Idled:Connect(function()
     if getgenv().AntiAfkEnabled then
         vu:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
         task.wait(1)
         vu:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
     end
-end)
+end))
 
 -- [[ Player Tab ]]
 playerTab:AddSection("Movement")
 
 local savedWalkSpeed = 16
 local savedJumpPower = 50
-local savedGravity   = 196
+local savedGravity  = 196
 local smoothRate     = 8
+local flyEnabled = false
 
 local function applyMovementSettings(character)
     local humanoid = character:WaitForChild("Humanoid", 5)
@@ -588,10 +614,10 @@ local function applyMovementSettings(character)
     humanoid.JumpPower = savedJumpPower
 end
 
-lp.CharacterAdded:Connect(applyMovementSettings)
+addConn(lp.CharacterAdded:Connect(applyMovementSettings))
 if lp.Character then applyMovementSettings(lp.Character) end
 
-rs.Heartbeat:Connect(function(dt)
+addConn(rs.Heartbeat:Connect(function(dt)
     local alpha = math.clamp(dt * smoothRate, 0, 1)
 
     if math.abs(workspace.Gravity - savedGravity) > 0.05 then
@@ -611,7 +637,7 @@ rs.Heartbeat:Connect(function(dt)
     if math.abs(humanoid.JumpPower - savedJumpPower) > 0.05 then
         humanoid.JumpPower = humanoid.JumpPower + (savedJumpPower - humanoid.JumpPower) * alpha
     end
-end)
+end))
 
 playerTab:AddSlider("WalkSpeed", 16, 250, 16, function(val) savedWalkSpeed = val end)
 playerTab:AddSlider("JumpPower", 50, 500, 50, function(val) savedJumpPower = val end)
@@ -625,7 +651,7 @@ end)
 playerTab:AddSection("Abilities")
 
 local infiniteJumpEnabled = false
-uis.JumpRequest:Connect(function()
+addConn(uis.JumpRequest:Connect(function()
     if not infiniteJumpEnabled then return end
     local character = lp.Character
     if not character then return end
@@ -633,14 +659,14 @@ uis.JumpRequest:Connect(function()
     if humanoid then
         humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
     end
-end)
+end))
 
 playerTab:AddToggle("Infinite Jump", function(state)
     infiniteJumpEnabled = state
 end)
 
 local noclipEnabled = false
-rs.Stepped:Connect(function()
+addConn(rs.Stepped:Connect(function()
     if not noclipEnabled then return end
     local character = lp.Character
     if not character then return end
@@ -649,7 +675,7 @@ rs.Stepped:Connect(function()
             part.CanCollide = false
         end
     end
-end)
+end))
 
 playerTab:AddToggle("Noclip", function(state)
     noclipEnabled = state
@@ -683,7 +709,7 @@ local function startFly()
 
     if toiletFlyConn then toiletFlyConn:Disconnect() end
 
-    toiletFlyConn = rs.Heartbeat:Connect(function()
+    toiletFlyConn = addConn(rs.Heartbeat:Connect(function()
         if not flyEnabled then return end
 
         humanoid.Sit = true
@@ -712,7 +738,7 @@ local function startFly()
         hrp.AssemblyLinearVelocity = Vector3.new(hzMove.X, vtVel, hzMove.Z)
         hrp.RotVelocity = Vector3.zero
         hrp.CFrame = hrp.CFrame * CFrame.Angles(0, 0.0001, 0)
-    end)
+    end))
 end
 
 local function stopFly()
@@ -737,12 +763,12 @@ local function stopFly()
     end
 end
 
-lp.CharacterAdded:Connect(function(newChar)
+addConn(lp.CharacterAdded:Connect(function(newChar)
     if flyEnabled then
         task.wait(0.5)
         startFly()
     end
-end)
+end))
 
 playerTab:AddToggle("Fly", function(state)
     flyEnabled = state
