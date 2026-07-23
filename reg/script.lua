@@ -660,12 +660,18 @@ end)
 playerTab:AddSection("Abilities")
 
 local infiniteJumpEnabled = false
+
 addConn(uis.JumpRequest:Connect(function()
     if not infiniteJumpEnabled then return end
+    
     local character = lp.Character
     if not character then return end
+    
     local humanoid = character:FindFirstChildOfClass("Humanoid")
-    if humanoid then
+    if not humanoid or humanoid.Health <= 0 then return end
+    
+    local currentState = humanoid:GetState()
+    if currentState ~= Enum.HumanoidStateType.Seated and currentState ~= Enum.HumanoidStateType.Dead then
         humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
     end
 end))
