@@ -675,12 +675,18 @@ playerTab:AddToggle("Infinite Jump", function(state)
 end)
 
 local noclipEnabled = false
+local originalCanCollide = {}
+
 addConn(rs.Stepped:Connect(function()
     if not noclipEnabled then return end
     local character = lp.Character
     if not character then return end
+    
     for _, part in ipairs(character:GetDescendants()) do
         if part:IsA("BasePart") then
+            if originalCanCollide[part] == nil then
+                originalCanCollide[part] = part.CanCollide
+            end
             part.CanCollide = false
         end
     end
@@ -689,15 +695,18 @@ end))
 playerTab:AddToggle("Noclip", function(state)
     noclipEnabled = state
     if not state then
-        local character = lp.Character
-        if not character then return end
-        for _, part in ipairs(character:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = true
+        for part, canCollide in pairs(originalCanCollide) do
+            if part and part.Parent then
+                part.CanCollide = canCollide
             end
         end
+        table.clear(originalCanCollide)
     end
 end)
+
+addConn(lp.CharacterAdded:Connect(function()
+    table.clear(originalCanCollide)
+end))
 
 local MAX_SPEED = 18.5
 local VERT_SPEED = 30
