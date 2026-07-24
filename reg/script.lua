@@ -686,6 +686,47 @@ addConn(rs.RenderStepped:Connect(function()
     end
 end))
 
+visualsTab:AddSection("Lighting Modifications")
+
+local fbEnabled = false
+local fbConnection = nil
+local origLighting = {}
+
+local function applyFullbright()
+    lighting.Ambient = Color3.fromRGB(255, 255, 255)
+    lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+    lighting.Brightness = 2
+    lighting.ClockTime = 14
+    lighting.FogEnd = 100000
+    lighting.GlobalShadows = false
+end
+
+visualsTab:AddToggle("Fullbright", "Removes shadows and makes everything bright", function(state)
+    fbEnabled = state
+    if state then
+        origLighting.Ambient = lighting.Ambient
+        origLighting.OutdoorAmbient = lighting.OutdoorAmbient
+        origLighting.Brightness = lighting.Brightness
+        origLighting.ClockTime = lighting.ClockTime
+        origLighting.FogEnd = lighting.FogEnd
+        origLighting.GlobalShadows = lighting.GlobalShadows
+        
+        applyFullbright()
+        
+        fbConnection = addConn(lighting:GetPropertyChangedSignal("Ambient"):Connect(function()
+            if fbEnabled then applyFullbright() end
+        end))
+    else
+        if fbConnection then 
+            fbConnection:Disconnect() 
+            fbConnection = nil
+        end
+        for k, v in pairs(origLighting) do
+            pcall(function() lighting[k] = v end)
+        end
+    end
+end)
+
 visualsTab:AddToggle("Enable ESP", "Master switch for Player ESP", function(state) espSettings.enabled = state end)
 visualsTab:AddToggle("Boxes", "Draw 2D bounding boxes", function(state) espSettings.boxes = state end)
 visualsTab:AddToggle("Names", "Display player DisplayName", function(state) espSettings.names = state end)
