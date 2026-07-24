@@ -517,7 +517,6 @@ end))
 -- [[ Player Tab ]]
 playerTab:AddSection("Movement")
 
-local savedWalkSpeed = 16
 local speedBoost = 0
 local savedJumpPower = 50
 local savedGravity  = 196
@@ -537,9 +536,6 @@ if lp.Character then applyMovementSettings(lp.Character) end
 addConn(rs.Heartbeat:Connect(function(dt)
     local alpha = math.clamp(dt * smoothRate, 0, 1)
     
-addConn(rs.Heartbeat:Connect(function(dt)
-    local alpha = math.clamp(dt * smoothRate, 0, 1)
-    
     if math.abs(workspace.Gravity - savedGravity) > 0.05 then
         workspace.Gravity = workspace.Gravity + (savedGravity - workspace.Gravity) * alpha
     end
@@ -553,12 +549,6 @@ addConn(rs.Heartbeat:Connect(function(dt)
     
     if not humanoid.UseJumpPower then humanoid.UseJumpPower = true end
     
-    if savedWalkSpeed ~= 16 then
-        if math.abs(humanoid.WalkSpeed - savedWalkSpeed) > 0.05 then
-            humanoid.WalkSpeed = humanoid.WalkSpeed + (savedWalkSpeed - humanoid.WalkSpeed) * alpha
-        end
-    end
-    
     if math.abs(humanoid.JumpPower - savedJumpPower) > 0.05 then
         humanoid.JumpPower = humanoid.JumpPower + (savedJumpPower - humanoid.JumpPower) * alpha
     end
@@ -568,7 +558,6 @@ addConn(rs.Heartbeat:Connect(function(dt)
     end
 end))
 
-playerTab:AddSlider("WalkSpeed", 16, 250, 16, function(val) savedWalkSpeed = val end)
 playerTab:AddSlider("Speed Boost", 0, 100, 0, function(val) speedBoost = val end)
 playerTab:AddSlider("JumpPower", 50, 500, 50, function(val) savedJumpPower = val end)
 playerTab:AddSlider("Gravity", 0, 400, 196, function(val) savedGravity = val end)
