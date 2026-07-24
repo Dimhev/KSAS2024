@@ -624,7 +624,6 @@ addConn(rs.RenderStepped:Connect(function()
             local headPos = cam:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
             local legPos = cam:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0))
             
-            -- Вычисляем размер коробки (3D -> 2D)
             local h = math.abs(headPos.Y - legPos.Y)
             local w = h * 0.6
             
