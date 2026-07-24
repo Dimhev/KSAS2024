@@ -388,6 +388,7 @@ local playerTab   = library:CreateTab("Player")
 local visualsTab  = library:CreateTab("Visuals")
 local settingsTab = library:CreateTab("Settings")
 
+-- [[ Home Tab ]]
 local pInfoFrame = create("Frame", {
     Size = UDim2.new(1, 0, 0, 100), 
     BackgroundColor3 = Color3.fromRGB(35, 35, 40),
