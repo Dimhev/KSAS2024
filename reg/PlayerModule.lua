@@ -6,6 +6,7 @@ local lp = players.LocalPlayer
 return function(playerTab, library)
     playerTab:AddSection("Movement")
 
+    local savedWalkSpeed = 16
     local speedBoost = 0
     local savedJumpPower = 50
     local savedGravity = 196
@@ -17,6 +18,7 @@ return function(playerTab, library)
         if not humanoid then return end
         humanoid.UseJumpPower = true
         humanoid.JumpPower = savedJumpPower
+        humanoid.WalkSpeed = savedWalkSpeed
     end
 
     library:AddConnection(lp.CharacterAdded:Connect(applyMovementSettings))
@@ -38,37 +40,47 @@ return function(playerTab, library)
         if math.abs(humanoid.JumpPower - savedJumpPower) > 0.05 then
             humanoid.JumpPower = humanoid.JumpPower + (savedJumpPower - humanoid.JumpPower) * alpha
         end
+        if humanoid.WalkSpeed ~= savedWalkSpeed then
+            humanoid.WalkSpeed = savedWalkSpeed
+        end
         
         if speedBoost > 0 and humanoid.MoveDirection.Magnitude > 0 then
             hrp.CFrame = hrp.CFrame + (humanoid.MoveDirection * (speedBoost * dt))
         end
     end))
 
-    playerTab:AddSlider("Speed Boost", 0, 100, 0, function(val) speedBoost = val end)
+    playerTab:AddSlider("WalkSpeed", 16, 200, 16, function(val) savedWalkSpeed = val end)
+    playerTab:AddSlider("Speed Boost (CFrame)", 0, 100, 0, function(val) speedBoost = val end)
     playerTab:AddSlider("JumpPower", 50, 500, 50, function(val) savedJumpPower = val end)
     playerTab:AddSlider("Gravity", 0, 400, 196, function(val) savedGravity = val end)
 
-    playerTab:AddSection("Camera")
-    playerTab:AddSlider("Field of View", 70, 120, 70, function(val)
-        workspace.CurrentCamera.FieldOfView = val
+    playerTab:AddSection("Defense & Utils")
+
+    local blockedPlayers = {}
+    playerTab:AddTagList("Anti-Fling", "Enter username (auto-completes)...", function(input)
+        input = input:lower()
+        for _, p in ipairs(players:GetPlayers()) do
+            if p.Name:lower():sub(1, #input) == input then
+                return p.Name
+            end
+        end
+        return input 
+    end, function(newList)
+        blockedPlayers = newList
     end)
 
-    playerTab:AddSection("Abilities")
-
-    local infiniteJumpEnabled = false
-    library:AddConnection(uis.JumpRequest:Connect(function()
-        if not infiniteJumpEnabled then return end
-        local character = lp.Character
-        if not character then return end
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        if not humanoid or humanoid.Health <= 0 then return end
-        local currentState = humanoid:GetState()
-        if currentState ~= Enum.HumanoidStateType.Seated and currentState ~= Enum.HumanoidStateType.Dead then
-            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+    library:AddConnection(rs.Stepped:Connect(function()
+        for _, pName in ipairs(blockedPlayers) do
+            local plr = players:FindFirstChild(pName)
+            if plr and plr.Character then
+                for _, part in ipairs(plr.Character:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            end
         end
     end))
-
-    playerTab:AddToggle("Infinite Jump", "Allows you to jump mid-air endlessly", function(state) infiniteJumpEnabled = state end)
 
     local noclipEnabled = false
     local originalCanCollide = {}
@@ -79,9 +91,7 @@ return function(playerTab, library)
         if not character then return end
         for _, part in ipairs(character:GetDescendants()) do
             if part:IsA("BasePart") then
-                if originalCanCollide[part] == nil then
-                    originalCanCollide[part] = part.CanCollide
-                end
+                if originalCanCollide[part] == nil then originalCanCollide[part] = part.CanCollide end
                 part.CanCollide = false
             end
         end
@@ -97,6 +107,10 @@ return function(playerTab, library)
         end
     end)
     library:AddConnection(lp.CharacterAdded:Connect(function() table.clear(originalCanCollide) end))
+    playerTab:AddBind("Toggle Noclip Key", Enum.KeyCode.N, function()
+        noclipEnabled = not noclipEnabled
+    end)
+
 
     playerTab:AddSection("Flight Control")
 
@@ -158,9 +172,13 @@ return function(playerTab, library)
         if flyEnabled then task.wait(0.5); startFly() end
     end))
 
-    playerTab:AddToggle("Fly", "Use WASD + Space/Ctrl to move freely", function(state)
+    playerTab:AddToggle("Fly", "Use WASD + Space/Ctrl", function(state)
         flyEnabled = state
         if state then startFly() else stopFly() end
+    end)
+    playerTab:AddBind("Toggle Fly Key", Enum.KeyCode.F, function()
+        flyEnabled = not flyEnabled
+        if flyEnabled then startFly() else stopFly() end
     end)
 
     playerTab:AddSlider("Fly Horizontal Speed", 10, 300, 18, function(val) flyHzSpeed = val end)
