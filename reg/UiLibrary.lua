@@ -265,6 +265,78 @@ function library:CreateTab(name)
         create("TextLabel", {Size = UDim2.new(1, 0, 0, 30), BackgroundTransparency = 1, Text = text, TextColor3 = Color3.fromRGB(235, 235, 235), Font = fontBold, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left, Parent = page})
     end
 
+    function elements:AddBind(text, defaultKey, callback)
+        local key = defaultKey
+        local frame = create("Frame", {Size = UDim2.new(1, 0, 0, 42), BackgroundColor3 = Color3.fromRGB(35, 35, 40), Parent = page})
+        create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = frame})
+        create("TextLabel", {Size = UDim2.new(1, -100, 1, 0), Position = UDim2.new(0, 14, 0, 0), BackgroundTransparency = 1, Text = text, TextColor3 = Color3.fromRGB(220, 220, 220), Font = fontBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, Parent = frame})
+        
+        local btn = create("TextButton", {Size = UDim2.new(0, 80, 0, 26), Position = UDim2.new(1, -94, 0.5, -13), BackgroundColor3 = Color3.fromRGB(25, 25, 30), Text = key.Name, TextColor3 = Color3.fromRGB(200, 200, 200), Font = fontBold, TextSize = 13, AutoButtonColor = false, Parent = frame})
+        create("UICorner", {CornerRadius = UDim.new(0, 4), Parent = btn})
+        
+        local listening = false
+        libRef:AddConnection(btn.MouseButton1Click:Connect(function()
+            listening = true; btn.Text = "..."
+        end))
+        
+        libRef:AddConnection(uis.InputBegan:Connect(function(input, gp)
+            if listening and input.UserInputType == Enum.UserInputType.Keyboard then
+                if input.KeyCode == Enum.KeyCode.Escape then
+                    listening = false; btn.Text = key.Name
+                    return
+                end
+                key = input.KeyCode; btn.Text = key.Name; listening = false
+            elseif not gp and input.KeyCode == key and not listening then
+                if callback then callback() end
+            end
+        end))
+    end
+
+    function elements:AddTagList(text, placeholder, onAddRequest, onListChanged)
+        local tags = {}
+        local frame = create("Frame", {Size = UDim2.new(1, 0, 0, 46), BackgroundColor3 = Color3.fromRGB(35, 35, 40), ClipsDescendants = true, Parent = page})
+        create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = frame})
+        create("TextLabel", {Size = UDim2.new(1, -20, 0, 14), Position = UDim2.new(0, 14, 0, 8), BackgroundTransparency = 1, Text = text, TextColor3 = Color3.fromRGB(220, 220, 220), Font = fontBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, Parent = frame})
+        
+        local box = create("TextBox", {Size = UDim2.new(1, -28, 0, 20), Position = UDim2.new(0, 14, 0, 24), BackgroundTransparency = 1, Text = "", PlaceholderText = placeholder, TextColor3 = Color3.fromRGB(150, 150, 150), Font = fontRegular, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false, Parent = frame})
+        
+        local tContainer = create("Frame", {Size = UDim2.new(1, -28, 0, 0), Position = UDim2.new(0, 14, 0, 50), BackgroundTransparency = 1, Parent = frame})
+        local layout = create("UIGridLayout", {CellSize = UDim2.new(0.48, 0, 0, 24), CellPadding = UDim2.new(0.04, 0, 0, 8), Parent = tContainer})
+        
+        local function updateSize()
+            local rows = math.ceil(#tags / 2)
+            tContainer.Size = UDim2.new(1, -28, 0, rows * 32)
+            frame.Size = UDim2.new(1, 0, 0, 46 + (rows > 0 and (rows * 32 + 8) or 0))
+        end
+
+        local function addVisualTag(tagName)
+            table.insert(tags, tagName)
+            local tFrame = create("Frame", {BackgroundColor3 = Color3.fromRGB(25, 25, 30), Parent = tContainer})
+            create("UICorner", {CornerRadius = UDim.new(0, 4), Parent = tFrame})
+            create("TextLabel", {Size = UDim2.new(1, -24, 1, 0), Position = UDim2.new(0, 8, 0, 0), BackgroundTransparency = 1, Text = tagName, TextColor3 = Color3.fromRGB(200, 200, 200), Font = fontRegular, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, Parent = tFrame})
+            
+            local del = create("TextButton", {Size = UDim2.new(0, 24, 1, 0), Position = UDim2.new(1, -24, 0, 0), BackgroundTransparency = 1, Text = "×", TextColor3 = Color3.fromRGB(255, 75, 75), Font = fontBold, TextSize = 16, Parent = tFrame})
+            
+            libRef:AddConnection(del.MouseButton1Click:Connect(function()
+                local idx = table.find(tags, tagName)
+                if idx then table.remove(tags, idx) end
+                tFrame:Destroy(); updateSize()
+                if onListChanged then onListChanged(tags) end
+            end))
+            
+            updateSize()
+            if onListChanged then onListChanged(tags) end
+        end
+
+        libRef:AddConnection(box.FocusLost:Connect(function(entered)
+            if entered and box.Text ~= "" then
+                local finalName = onAddRequest and onAddRequest(box.Text) or box.Text
+                if finalName and not table.find(tags, finalName) then addVisualTag(finalName) end
+                box.Text = ""
+            end
+        end))
+    end
+
     return elements
 end
 
