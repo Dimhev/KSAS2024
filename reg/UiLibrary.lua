@@ -292,8 +292,10 @@ function library:CreateTab(name)
         end))
     end
 
-    function elements:AddTagList(text, placeholder, onAddRequest, onListChanged)
+function elements:AddTagList(text, placeholder, onAddRequest, onListChanged)
         local tags = {}
+        local tagMethods = {}
+        
         local frame = create("Frame", {Size = UDim2.new(1, 0, 0, 46), BackgroundColor3 = Color3.fromRGB(35, 35, 40), ClipsDescendants = true, Parent = page})
         create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = frame})
         create("TextLabel", {Size = UDim2.new(1, -20, 0, 14), Position = UDim2.new(0, 14, 0, 8), BackgroundTransparency = 1, Text = text, TextColor3 = Color3.fromRGB(220, 220, 220), Font = fontBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, Parent = frame})
@@ -311,19 +313,25 @@ function library:CreateTab(name)
 
         local function addVisualTag(tagName)
             table.insert(tags, tagName)
-            local tFrame = create("Frame", {BackgroundColor3 = Color3.fromRGB(25, 25, 30), Parent = tContainer})
+            local tFrame = create("Frame", {Name = tagName, BackgroundColor3 = Color3.fromRGB(25, 25, 30), Parent = tContainer})
             create("UICorner", {CornerRadius = UDim.new(0, 4), Parent = tFrame})
             create("TextLabel", {Size = UDim2.new(1, -24, 1, 0), Position = UDim2.new(0, 8, 0, 0), BackgroundTransparency = 1, Text = tagName, TextColor3 = Color3.fromRGB(200, 200, 200), Font = fontRegular, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, Parent = tFrame})
             
             local del = create("TextButton", {Size = UDim2.new(0, 24, 1, 0), Position = UDim2.new(1, -24, 0, 0), BackgroundTransparency = 1, Text = "×", TextColor3 = Color3.fromRGB(255, 75, 75), Font = fontBold, TextSize = 16, Parent = tFrame})
             
             libRef:AddConnection(del.MouseButton1Click:Connect(function()
-                local idx = table.find(tags, tagName)
-                if idx then table.remove(tags, idx) end
-                tFrame:Destroy(); updateSize()
-                if onListChanged then onListChanged(tags) end
+                tagMethods:RemoveTag(tagName)
             end))
             
+            updateSize()
+            if onListChanged then onListChanged(tags) end
+        end
+
+        function tagMethods:RemoveTag(tagName)
+            local idx = table.find(tags, tagName)
+            if idx then table.remove(tags, idx) end
+            local foundFrame = tContainer:FindFirstChild(tagName)
+            if foundFrame then foundFrame:Destroy() end
             updateSize()
             if onListChanged then onListChanged(tags) end
         end
@@ -335,6 +343,8 @@ function library:CreateTab(name)
                 box.Text = ""
             end
         end))
+
+        return tagMethods 
     end
 
     return elements
