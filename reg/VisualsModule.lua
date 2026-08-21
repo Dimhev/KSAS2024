@@ -114,7 +114,7 @@ return function(visualsTab, library)
                 else cache.boxOutline.Visible = false; cache.box.Visible = false end
                 
                 if espSettings.names then
-                    cache.name.Text = plr.DisplayName; cache.name.Position = Vector2.new(headPos.X, headPos.Y - 16); cache.name.Color = renderColor; cache.name.Visible = true
+                    cache.name.Text = plr.Name; cache.name.Position = Vector2.new(headPos.X, headPos.Y - 16); cache.name.Color = renderColor; cache.name.Visible = true
                 else cache.name.Visible = false end
                 
                 if espSettings.distance then
