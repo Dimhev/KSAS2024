@@ -57,14 +57,25 @@ return function(playerTab, library)
     playerTab:AddSection("Defense & Utils")
 
     local blockedPlayers = {}
-    local disableAllCollision = false
+    local friendCache = {}
 
-    playerTab:AddToggle("Disable All Collisions", "Ignore blacklist, disable for ALL players", function(state)
-        disableAllCollision = state
+    task.spawn(function()
+        for _, plr in ipairs(players:GetPlayers()) do
+            if plr ~= lp then pcall(function() friendCache[plr.UserId] = lp:IsFriendsWith(plr.UserId) end) end
+        end
     end)
+    library:AddConnection(players.PlayerAdded:Connect(function(plr)
+        pcall(function() friendCache[plr.UserId] = lp:IsFriendsWith(plr.UserId) end)
+    end))
+    library:AddConnection(players.PlayerRemoving:Connect(function(plr)
+        friendCache[plr.UserId] = nil
+    end))
 
-    local flingTagObj = playerTab:AddTagList("Anti-Fling (Blacklist)", "Enter username...", function(input)
+    local flingTagObj = playerTab:AddTagList("Anti-Fling", "Name / 'All' / 'Friends'", function(input)
         input = input:lower()
+        if input == "all" then return "All" end
+        if input == "friends" then return "Friends" end
+        
         for _, p in ipairs(players:GetPlayers()) do
             if p.Name:lower():sub(1, #input) == input then
                 return p.Name
@@ -82,9 +93,20 @@ return function(playerTab, library)
     end))
 
     library:AddConnection(rs.Stepped:Connect(function()
-        if disableAllCollision then
+        local isAll = table.find(blockedPlayers, "All")
+        local isFriends = table.find(blockedPlayers, "Friends")
+
+        if isAll then
             for _, plr in ipairs(players:GetPlayers()) do
                 if plr ~= lp and plr.Character then
+                    for _, part in ipairs(plr.Character:GetChildren()) do
+                        if part:IsA("BasePart") then part.CanCollide = false end
+                    end
+                end
+            end
+        elseif isFriends then
+            for _, plr in ipairs(players:GetPlayers()) do
+                if plr ~= lp and not friendCache[plr.UserId] and plr.Character then
                     for _, part in ipairs(plr.Character:GetChildren()) do
                         if part:IsA("BasePart") then part.CanCollide = false end
                     end
@@ -96,19 +118,6 @@ return function(playerTab, library)
                 if plr and plr.Character then
                     for _, part in ipairs(plr.Character:GetChildren()) do
                         if part:IsA("BasePart") then part.CanCollide = false end
-                    end
-                end
-            end
-        end
-    end))
-
-    library:AddConnection(rs.Stepped:Connect(function()
-        for _, pName in ipairs(blockedPlayers) do
-            local plr = players:FindFirstChild(pName)
-            if plr and plr.Character then
-                for _, part in ipairs(plr.Character:GetChildren()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
                     end
                 end
             end
