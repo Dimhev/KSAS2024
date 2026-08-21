@@ -57,7 +57,13 @@ return function(playerTab, library)
     playerTab:AddSection("Defense & Utils")
 
     local blockedPlayers = {}
-    playerTab:AddTagList("Anti-Fling", "Enter username (auto-completes)...", function(input)
+    local disableAllCollision = false
+
+    playerTab:AddToggle("Disable All Collisions", "Ignore blacklist, disable for ALL players", function(state)
+        disableAllCollision = state
+    end)
+
+    local flingTagObj = playerTab:AddTagList("Anti-Fling (Blacklist)", "Enter username...", function(input)
         input = input:lower()
         for _, p in ipairs(players:GetPlayers()) do
             if p.Name:lower():sub(1, #input) == input then
@@ -68,6 +74,33 @@ return function(playerTab, library)
     end, function(newList)
         blockedPlayers = newList
     end)
+
+    library:AddConnection(players.PlayerRemoving:Connect(function(plr)
+        if table.find(blockedPlayers, plr.Name) then
+            flingTagObj:RemoveTag(plr.Name)
+        end
+    end))
+
+    library:AddConnection(rs.Stepped:Connect(function()
+        if disableAllCollision then
+            for _, plr in ipairs(players:GetPlayers()) do
+                if plr ~= lp and plr.Character then
+                    for _, part in ipairs(plr.Character:GetChildren()) do
+                        if part:IsA("BasePart") then part.CanCollide = false end
+                    end
+                end
+            end
+        else
+            for _, pName in ipairs(blockedPlayers) do
+                local plr = players:FindFirstChild(pName)
+                if plr and plr.Character then
+                    for _, part in ipairs(plr.Character:GetChildren()) do
+                        if part:IsA("BasePart") then part.CanCollide = false end
+                    end
+                end
+            end
+        end
+    end))
 
     library:AddConnection(rs.Stepped:Connect(function()
         for _, pName in ipairs(blockedPlayers) do
