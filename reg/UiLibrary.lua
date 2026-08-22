@@ -443,8 +443,8 @@ function library:CreateTab(name)
         end
 
         local function addVisualTag(tagName)
-            table.insert(tags, tagName)
-            local tFrame = create("Frame", {Name = tagName, BackgroundColor3 = libRef.theme.innerBg, Parent = tContainer})
+        table.insert(tags, tagName)
+        local tFrame = create("Frame", {Name = "Tag_" .. tagName, BackgroundColor3 = libRef.theme.innerBg, Parent = tContainer})
             create("UICorner", {CornerRadius = UDim.new(0, 4), Parent = tFrame})
             applyStroke(tFrame, Color3.fromRGB(255, 255, 255), 0.9)
 
@@ -463,7 +463,7 @@ function library:CreateTab(name)
         function tagMethods:RemoveTag(tagName)
             local idx = table.find(tags, tagName)
             if idx then table.remove(tags, idx) end
-            local foundFrame = tContainer:FindFirstChild(tagName)
+            local foundFrame = tContainer:FindFirstChild("Tag_" .. tagName)
             if foundFrame then foundFrame:Destroy() end
             updateSize()
             if onListChanged then onListChanged(tags) end
