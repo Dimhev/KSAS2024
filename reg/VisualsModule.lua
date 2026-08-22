@@ -146,95 +146,9 @@ return function(visualsTab, library)
 visualsTab:AddSection("Performance & Optimization")
 
 local cullingActive = false
-local aggressiveCulling = false
 local vfxActive = false
 
 local HIDE_DIST_SQ = 500 * 500
-local AGGRESSIVE_HIDE_DIST_SQ = 600 * 600
-local BATCH_SIZE = 300
-
-local trackedParts = {}
-local trackedSet = setmetatable({}, { __mode = "k" })
-local vfxCache = setmetatable({}, { __mode = "k" }) 
-local currentIndex = 1
-
-local lastLook = nil
-local calmTimer = 0
-local isCalm = true
-
-local function getBasePosition(inst)
-    if inst:IsA("BasePart") then return inst.Position end
-    if inst:IsA("Trail") or inst:IsA("Beam") then
-        local a0, a1 = inst.Attachment0, inst.Attachment1
-        if a0 and a1 then
-            return (a0.WorldPosition + a1.WorldPosition) / 2
-        elseif a0 then return a0.WorldPosition
-        elseif a1 then return a1.WorldPosition
-        end
-    end
-    if inst.Parent and inst.Parent:IsA("BasePart") then return inst.Parent.Position end
-    if inst.Parent and inst.Parent:IsA("Attachment") then return inst.Parent.WorldPosition end
-    return nil
-end
-
-local function registerObject(inst)
-    if trackedSet[inst] then return end
-
-    if inst:IsA("BasePart") then
-        local model = inst:FindFirstAncestorOfClass("Model")
-        if model and model:FindFirstChildOfClass("Humanoid") then return end 
-
-        local size = inst.Size.Magnitude
-        local isDeco = (not inst.CanCollide and size < 15)
-        local isMedium = (not inst.CanCollide and size >= 15 and size < 50) 
-        
-        local shadowDist = size > 25 and 200 or (size > 10 and 120 or 70)
-        
-        trackedSet[inst] = true
-        table.insert(trackedParts, {
-            part = inst,
-            origParent = inst.Parent,
-            origShadow = inst.CastShadow,
-            shadowDistSq = shadowDist * shadowDist,
-            isDeco = isDeco,
-            isMedium = isMedium,
-            hidden = false 
-        })
-    end
-
-    if inst:IsA("ParticleEmitter") then 
-        trackedSet[inst] = true
-        vfxCache[inst] = { Rate = inst.Rate, Type = "Particle" }
-    elseif inst:IsA("Smoke") then 
-        trackedSet[inst] = true
-        vfxCache[inst] = { Opacity = inst.Opacity, Type = "Smoke" }
-    elseif inst:IsA("Trail") then 
-        trackedSet[inst] = true
-        vfxCache[inst] = { Lifetime = inst.Lifetime, Type = "Trail" }
-    elseif inst:IsA("Beam") then 
-        trackedSet[inst] = true
-        vfxCache[inst] = { Segments = inst.Segments, Type = "Beam" }
-    elseif inst:IsA("Light") then 
-        trackedSet[inst] = true
-        vfxCache[inst] = { Shadows = inst.Shadows, Range = inst.Range, Type = "Light" }
-    end
-end
-
-task.spawn(function()
-    for i, v in ipairs(workspace:GetDescendants()) do
-        registerObject(v)
-        if i % 1000 == 0 then task.wait() end
-    end
-end)
-
-visualsTab:AddSection("Performance & Optimization")
-
-local cullingActive = false
-local aggressiveCulling = false
-local vfxActive = false
-
-local HIDE_DIST_SQ = 500 * 500
-local AGGRESSIVE_HIDE_DIST_SQ = 600 * 600
 local BATCH_SIZE = 300
 
 local trackedParts = {}
@@ -267,8 +181,6 @@ local function registerObject(inst)
         local size = inst.Size.Magnitude
         
         local isDeco = (not inst.CanCollide and size < 15)
-
-        local isMedium = (size >= 15 and size < 60) 
         
         local shadowDist = size > 25 and 200 or (size > 10 and 120 or 70)
         
@@ -279,7 +191,6 @@ local function registerObject(inst)
             origShadow = inst.CastShadow,
             shadowDistSq = shadowDist * shadowDist,
             isDeco = isDeco,
-            isMedium = isMedium,
             hidden = false 
         })
     end
@@ -340,11 +251,6 @@ library:AddConnection(rs.Heartbeat:Connect(function(deltaTime)
         local dz = part.Position.Z - camPos.Z
         local distSq = dx*dx + dy*dy + dz*dz
 
-        local isBehind = false
-        if distSq > 900 then 
-            isBehind = (lookVec.X*dx + lookVec.Y*dy + lookVec.Z*dz) < 0
-        end
-
         local shouldShadow = data.origShadow and (distSq <= data.shadowDistSq)
         if part.CastShadow ~= shouldShadow then
             part.CastShadow = shouldShadow
@@ -353,9 +259,11 @@ library:AddConnection(rs.Heartbeat:Connect(function(deltaTime)
         local shouldHide = false
         
         if data.isDeco then
+            local isBehind = false
+            if distSq > 900 then 
+                isBehind = (lookVec.X*dx + lookVec.Y*dy + lookVec.Z*dz) < 0
+            end
             shouldHide = distSq > HIDE_DIST_SQ or (isBehind and distSq > 10000) 
-        elseif aggressiveCulling and data.isMedium then
-            shouldHide = distSq > AGGRESSIVE_HIDE_DIST_SQ or (isBehind and distSq > 90000)
         end
 
         if shouldHide and not data.hidden then
@@ -476,10 +384,6 @@ visualsTab:AddToggle("Smart Spatial Culling", function(state)
     end
 end)
 
-visualsTab:AddToggle("Aggressive Culling", function(state)
-    aggressiveCulling = state
-end)
-
 visualsTab:AddToggle("Distance-Based VFX", function(state)
     vfxActive = state
     togglePostProcessing(state)
@@ -493,8 +397,8 @@ visualsTab:AddToggle("Distance-Based VFX", function(state)
                 elseif data.Type == "Beam" then inst.Segments = data.Segments
                 elseif data.Type == "Light" then inst.Shadows = data.Shadows; inst.Range = data.Range
                 end
-             end
-         end
-     end
-  end)
+            end
+        end
+    end
+end)
 end
