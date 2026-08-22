@@ -277,7 +277,11 @@ function library:CreateTab(name)
         page.Visible = true; tabBtn.TextColor3 = Color3.fromRGB(255, 255, 255); tabBtn.BackgroundTransparency = 0.94; tabBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255); tabBtn.Font = fontBold; activeIndicator.BackgroundTransparency = 0
     end
 
-    local elements = {page = page}
+    local elements = {
+        page = page,
+        btn = tabBtn,
+        indicator = activeIndicator
+    }
     local libRef = self
 
     function elements:AddButton(text, callback)
