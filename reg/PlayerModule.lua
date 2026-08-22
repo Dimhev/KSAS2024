@@ -4,6 +4,14 @@ local uis = game:GetService("UserInputService")
 local lp = players.LocalPlayer
 
 return function(playerTab, library)
+    local function notify(title, text)
+        if library.Notify then
+            library:Notify(title, text, 2)
+        elseif library.Notification then
+            library:Notification({Title = title, Text = text, Duration = 2})
+        end
+    end
+
     playerTab:AddSection("Movement")
 
     local savedWalkSpeed = 16
@@ -11,7 +19,32 @@ return function(playerTab, library)
     local savedJumpPower = 50
     local savedGravity = 196
     local smoothRate = 8
-    local flyEnabled = false
+    
+    local infJumpEnabled = false
+    local infJumpPower = 50
+    local lastJump = 0
+    local jumpCooldown = 0.12 
+
+    library:AddConnection(uis.JumpRequest:Connect(function()
+        if not infJumpEnabled then return end
+        local character = lp.Character
+        if not character then return end
+        
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if not humanoid or not hrp or humanoid.Health <= 0 then return end
+
+        if tick() - lastJump >= jumpCooldown and humanoid:GetState() ~= Enum.HumanoidStateType.Seated then
+            lastJump = tick()
+            
+            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            hrp.AssemblyLinearVelocity = Vector3.new(
+                hrp.AssemblyLinearVelocity.X, 
+                infJumpPower, 
+                hrp.AssemblyLinearVelocity.Z
+            )
+        end
+    end))
 
     local function applyMovementSettings(character)
         local humanoid = character:WaitForChild("Humanoid", 5)
@@ -53,6 +86,22 @@ return function(playerTab, library)
     playerTab:AddSlider("Speed Boost (CFrame)", 0, 100, 0, function(val) speedBoost = val end)
     playerTab:AddSlider("JumpPower", 50, 500, 50, function(val) savedJumpPower = val end)
     playerTab:AddSlider("Gravity", 0, 400, 196, function(val) savedGravity = val end)
+
+    local infJumpToggle = playerTab:AddToggle("Infinite Jump", "Jump infinitely in air", function(state)
+        infJumpEnabled = state
+        notify("Infinite Jump", state and "Enabled" or "Disabled")
+    end)
+    playerTab:AddSlider("Inf Jump Force", 30, 200, 50, function(val) infJumpPower = val end)
+    
+    playerTab:AddBind("Toggle InfJump Key", Enum.KeyCode.J, function()
+        if infJumpToggle and infJumpToggle.Set then
+            infJumpToggle:Set(not infJumpEnabled)
+        else
+            infJumpEnabled = not infJumpEnabled
+            notify("Infinite Jump", infJumpEnabled and "Enabled" or "Disabled")
+        end
+    end)
+
 
     playerTab:AddSection("Defense & Utils")
 
@@ -139,7 +188,7 @@ return function(playerTab, library)
         end
     end))
 
-    playerTab:AddToggle("Noclip", "Walk through walls and obstacles", function(state)
+    local noclipToggle = playerTab:AddToggle("Noclip", "Walk through walls and obstacles", function(state)
         noclipEnabled = state
         if not state then
             for part, canCollide in pairs(originalCanCollide) do
@@ -147,15 +196,24 @@ return function(playerTab, library)
             end
             table.clear(originalCanCollide)
         end
+        notify("Noclip", state and "Enabled" or "Disabled")
     end)
+
     library:AddConnection(lp.CharacterAdded:Connect(function() table.clear(originalCanCollide) end))
+    
     playerTab:AddBind("Toggle Noclip Key", Enum.KeyCode.N, function()
-        noclipEnabled = not noclipEnabled
+        if noclipToggle and noclipToggle.Set then
+            noclipToggle:Set(not noclipEnabled)
+        else
+            noclipEnabled = not noclipEnabled
+            notify("Noclip", noclipEnabled and "Enabled" or "Disabled")
+        end
     end)
 
 
     playerTab:AddSection("Flight Control")
 
+    local flyEnabled = false
     local flyHzSpeed = 18.5
     local flyVtSpeed = 30
     local toiletFlyConn = nil
@@ -214,13 +272,20 @@ return function(playerTab, library)
         if flyEnabled then task.wait(0.5); startFly() end
     end))
 
-    playerTab:AddToggle("Fly", "Use WASD + Space/Ctrl", function(state)
+    local flyToggle = playerTab:AddToggle("Fly", "Use WASD + Space/Ctrl", function(state)
         flyEnabled = state
         if state then startFly() else stopFly() end
+        notify("Flight", state and "Enabled" or "Disabled")
     end)
+
     playerTab:AddBind("Toggle Fly Key", Enum.KeyCode.F, function()
-        flyEnabled = not flyEnabled
-        if flyEnabled then startFly() else stopFly() end
+        if flyToggle and flyToggle.Set then
+            flyToggle:Set(not flyEnabled)
+        else
+            flyEnabled = not flyEnabled
+            if flyEnabled then startFly() else stopFly() end
+            notify("Flight", flyEnabled and "Enabled" or "Disabled")
+        end
     end)
 
     playerTab:AddSlider("Fly Horizontal Speed", 10, 300, 18, function(val) flyHzSpeed = val end)
