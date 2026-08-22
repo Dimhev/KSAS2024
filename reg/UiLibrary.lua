@@ -482,4 +482,4 @@ function library:CreateTab(name)
     return elements
 end
 
-return library
+return UiLibrary
