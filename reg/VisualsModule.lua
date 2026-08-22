@@ -143,17 +143,23 @@ return function(visualsTab, library)
     visualsTab:AddToggle("Use Team Colors", "Matches ESP color to player's team", function(state) espSettings.teamColor = state end)
     visualsTab:AddSlider("Max Distance", 100, 5000, 1500, function(val) espSettings.maxDist = val end)
 
-    visualsTab:AddSection("Performance & Optimization")
+visualsTab:AddSection("Performance & Optimization")
     
     local cullingActive = false
+    local aggressiveCulling = false
     local vfxActive = false
     
     local HIDE_DIST_SQ = 500 * 500
-    local BATCH_SIZE = 250
+    local AGGRESSIVE_HIDE_DIST_SQ = 600 * 600
+    local BATCH_SIZE = 300
 
     local trackedParts = {}
     local vfxCache = setmetatable({}, { __mode = "k" }) 
     local currentIndex = 1
+
+    local lastLook = Vector3.new()
+    local calmTimer = 0
+    local isCalm = true
 
     local function getBasePosition(inst)
         if inst:IsA("BasePart") then return inst.Position end
@@ -168,6 +174,7 @@ return function(visualsTab, library)
 
             local size = inst.Size.Magnitude
             local isDeco = (not inst.CanCollide and size < 15)
+            local isMedium = (not inst.CanCollide and size < 50) 
             
             local shadowDist = size > 25 and 200 or (size > 10 and 120 or 70)
             
@@ -176,7 +183,8 @@ return function(visualsTab, library)
                 origParent = inst.Parent,
                 origShadow = inst.CastShadow,
                 shadowDistSq = shadowDist * shadowDist,
-                isDeco = isDeco
+                isDeco = isDeco,
+                isMedium = isMedium
             })
         end
 
@@ -197,7 +205,7 @@ return function(visualsTab, library)
 
     library:AddConnection(workspace.DescendantAdded:Connect(registerObject))
 
-    library:AddConnection(rs.Heartbeat:Connect(function()
+    library:AddConnection(rs.Heartbeat:Connect(function(deltaTime)
         if not cullingActive or #trackedParts == 0 then return end
         
         local cam = workspace.CurrentCamera
@@ -207,13 +215,24 @@ return function(visualsTab, library)
         local camPos = camCFrame.Position
         local lookVec = camCFrame.LookVector
         
+        local turnDelta = (lookVec - lastLook).Magnitude
+        lastLook = lookVec
+
+        if turnDelta > 0.015 then 
+            calmTimer = 0
+            isCalm = false
+        else
+            calmTimer = calmTimer + deltaTime
+            if calmTimer > 3 then isCalm = true end 
+        end
+        
         local limit = math.min(currentIndex + BATCH_SIZE, #trackedParts)
 
         for i = currentIndex, limit do
             local data = trackedParts[i]
             local part = data.part
 
-            if not part or part.Parent == nil and not (data.isDeco and data.origParent ~= nil) then
+            if not part or part.Parent == nil and not ((data.isDeco or data.isMedium) and data.origParent ~= nil) then
                 continue 
             end
 
@@ -231,14 +250,19 @@ return function(visualsTab, library)
                 part.CastShadow = shouldShadow
             end
 
+            local shouldHide = false
+            
             if data.isDeco then
-                local shouldHide = distSq > HIDE_DIST_SQ or (isBehind and distSq > 10000) 
-                if shouldHide and part.Parent ~= nil then
-                    data.origParent = part.Parent
-                    part.Parent = nil 
-                elseif not shouldHide and part.Parent == nil then
-                    part.Parent = data.origParent 
-                end
+                shouldHide = distSq > HIDE_DIST_SQ or (isBehind and distSq > 10000) 
+            elseif aggressiveCulling and data.isMedium then
+                shouldHide = distSq > AGGRESSIVE_HIDE_DIST_SQ or (isBehind and isCalm and distSq > 40000)
+            end
+
+            if shouldHide and part.Parent ~= nil then
+                data.origParent = part.Parent
+                part.Parent = nil 
+            elseif not shouldHide and part.Parent == nil then
+                part.Parent = data.origParent 
             end
         end
 
@@ -299,7 +323,7 @@ return function(visualsTab, library)
         end
     end
 
-visualsTab:AddToggle("Smart Spatial Culling", function(state)
+    visualsTab:AddToggle("Smart Spatial Culling", function(state)
         cullingActive = state
         if not state then
             for _, data in ipairs(trackedParts) do
@@ -309,6 +333,10 @@ visualsTab:AddToggle("Smart Spatial Culling", function(state)
                 end
             end
         end
+    end)
+
+    visualsTab:AddToggle("Aggressive Culling", function(state)
+        aggressiveCulling = state
     end)
 
     visualsTab:AddToggle("Distance-Based VFX", function(state)
@@ -328,4 +356,3 @@ visualsTab:AddToggle("Smart Spatial Culling", function(state)
             end
         end
     end)
-end
