@@ -148,7 +148,8 @@ visualsTab:AddSection("Performance & Optimization")
 local cullingActive = false
 local vfxActive = false
 
-local HIDE_DIST_SQ = 500 * 500
+local DECO_HIDE_DIST_SQ = 400 * 400
+local DEBRIS_HIDE_DIST_SQ = 180 * 180 
 local BATCH_SIZE = 300
 
 local trackedParts = {}
@@ -176,11 +177,17 @@ local function registerObject(inst)
 
     if inst:IsA("BasePart") then
         local model = inst:FindFirstAncestorOfClass("Model")
-        if model and model:FindFirstChildOfClass("Humanoid") then return end 
+        if model then
+            if model:FindFirstChildOfClass("Humanoid") then return end
+            if model:FindFirstChildOfClass("VehicleSeat") or model:FindFirstChildOfClass("Seat") then return end
+        end
+        if inst:FindFirstAncestorOfClass("Tool") then return end
 
         local size = inst.Size.Magnitude
         
         local isDeco = (not inst.CanCollide and size < 15)
+        
+        local isDebris = (not inst.Anchored and size < 25)
         
         local shadowDist = size > 25 and 200 or (size > 10 and 120 or 70)
         
@@ -191,7 +198,9 @@ local function registerObject(inst)
             origShadow = inst.CastShadow,
             shadowDistSq = shadowDist * shadowDist,
             isDeco = isDeco,
-            hidden = false 
+            isDebris = isDebris,
+            hidden = false,
+            lastPos = inst.Position
         })
     end
 
@@ -246,9 +255,13 @@ library:AddConnection(rs.Heartbeat:Connect(function(deltaTime)
             continue 
         end
 
-        local dx = part.Position.X - camPos.X
-        local dy = part.Position.Y - camPos.Y
-        local dz = part.Position.Z - camPos.Z
+        if not data.hidden then
+            data.lastPos = part.Position
+        end
+
+        local dx = data.lastPos.X - camPos.X
+        local dy = data.lastPos.Y - camPos.Y
+        local dz = data.lastPos.Z - camPos.Z
         local distSq = dx*dx + dy*dy + dz*dz
 
         local shouldShadow = data.origShadow and (distSq <= data.shadowDistSq)
@@ -258,12 +271,16 @@ library:AddConnection(rs.Heartbeat:Connect(function(deltaTime)
 
         local shouldHide = false
         
-        if data.isDeco then
+        if data.isDebris then
+            local isBehind = (lookVec.X*dx + lookVec.Y*dy + lookVec.Z*dz) < 0
+            shouldHide = (distSq > DEBRIS_HIDE_DIST_SQ) or (isBehind and distSq > 3600)
+            
+        elseif data.isDeco then
             local isBehind = false
             if distSq > 900 then 
                 isBehind = (lookVec.X*dx + lookVec.Y*dy + lookVec.Z*dz) < 0
             end
-            shouldHide = distSq > HIDE_DIST_SQ or (isBehind and distSq > 10000) 
+            shouldHide = (distSq > DECO_HIDE_DIST_SQ) or (isBehind and distSq > 10000)
         end
 
         if shouldHide and not data.hidden then
