@@ -301,6 +301,7 @@ function library:CreateTab(name)
          end)
         if callback then task.spawn(callback) end
         end))
+    end
 
     function elements:AddToggle(text, description, callback)
         if type(description) == "function" then callback = description; description = nil end
