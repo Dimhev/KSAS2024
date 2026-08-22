@@ -41,8 +41,10 @@ create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, SortOrde
 local function createStatBlock(text, isThemeColor)
     local block = create("Frame", { Size = UDim2.new(0.33, -5, 1, 0), BackgroundColor3 = Color3.fromRGB(35, 35, 40), Parent = statsContainer })
     create("UICorner", { CornerRadius = UDim.new(0, 8), Parent = block })
-    local label = create("TextLabel", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = text, TextColor3 = isThemeColor and UiLibrary.themeColor or Color3.fromRGB(220, 220, 220), Font = Enum.Font.SourceSansBold, TextSize = 14, Parent = block })
-    if isThemeColor and UiLibrary.themeObjects then table.insert(UiLibrary.themeObjects, label) end
+    local label = create("TextLabel", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = text, TextColor3 = isThemeColor and UiLibrary.theme.accent or Color3.fromRGB(220, 220, 220), Font = Enum.Font.SourceSansBold, TextSize = 14, Parent = block })
+    if isThemeColor and UiLibrary.themeObjects and UiLibrary.themeObjects.accent then 
+        table.insert(UiLibrary.themeObjects.accent, label) 
+    end
     return label
 end
 
@@ -86,22 +88,19 @@ PlayerModule(playerTab, UiLibrary)
 VisualsModule(visualsTab, UiLibrary)
 
 settingsTab:AddSection("UI Customization")
-settingsTab:AddColorPicker("Theme Color", UiLibrary.themeColor, function(color)
-    UiLibrary:UpdateTheme(color)
+
+settingsTab:AddColorPicker("Accent Color", UiLibrary.theme.accent, function(color)
+    UiLibrary:SetAccentColor(color)
 end)
 
-settingsTab:AddColorPicker("Accent Color", library.theme.accent, function(color)
-    library:SetAccentColor(color)
+settingsTab:AddColorPicker("Background Color", UiLibrary.theme.mainBg, function(color)
+    UiLibrary:SetMainColor(color)
 end)
 
-settingsTab:AddColorPicker("Background Color", library.theme.mainBg, function(color)
-    library:SetMainColor(color)
-end)
-
-settingsTab:AddColorPicker("Element Color", library.theme.elementBg, function(color)
-    library:SetElementColor(color)
+settingsTab:AddColorPicker("Element Color", UiLibrary.theme.elementBg, function(color)
+    UiLibrary:SetElementColor(color)
 end)
 
 settingsTab:AddButton("Send Test Notification", function()
-    library:Notify("Project Hub", "Settings applied successfully!", 3)
+    UiLibrary:Notify("Project Hub", "Settings applied successfully!", 3)
 end)
