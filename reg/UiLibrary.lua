@@ -53,7 +53,7 @@ end
 
 local gui = create("ScreenGui", { Name = "ProjectHub", ResetOnSpawn = false, Parent = parent })
 
-local UiLibrary = {
+local library = {
     theme = {
         accent = Color3.fromRGB(115, 135, 255),
         mainBg = Color3.fromRGB(22, 22, 26),
@@ -242,7 +242,7 @@ function library:SetElementColor(color)
     end
 end
 
-function UiLibrary:CreateTab(name)
+function library:CreateTab(name)
     self.tabCount = self.tabCount + 1
     local order = self.tabCount
     local tabBtn = create("TextButton", { Size = UDim2.new(1, 0, 0, 36), BackgroundTransparency = 1, LayoutOrder = order, Text = "    " .. name, TextColor3 = Color3.fromRGB(150, 150, 150), Font = fontRegular, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, Parent = tabContainer })
@@ -487,4 +487,4 @@ function UiLibrary:CreateTab(name)
     return elements
 end
 
-return UiLibrary
+return library
