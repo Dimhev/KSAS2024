@@ -291,11 +291,12 @@ function library:CreateTab(name)
         libRef:AddConnection(btn.MouseLeave:Connect(function() ts:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = libRef.theme.elementBg}):Play() end))
         libRef:AddConnection(btn.MouseButton1Click:Connect(function()
             local tw = ts:Create(btn, TweenInfo.new(0.08), {Size = UDim2.new(0.98, 0, 0, 36)})
-            tw:Play(); tw.Completed:Wait()
+            tw:Play()
+            tw.Completed:Connect(function()
             ts:Create(btn, TweenInfo.new(0.08), {Size = UDim2.new(1, 0, 0, 38)}):Play()
-            if callback then callback() end
+         end)
+        if callback then task.spawn(callback) end
         end))
-    end
 
     function elements:AddToggle(text, description, callback)
         if type(description) == "function" then callback = description; description = nil end
