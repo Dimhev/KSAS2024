@@ -418,10 +418,7 @@ function library:CreateTab(name)
         create("UIPadding", {PaddingLeft = UDim.new(0, 4), Parent = sec})
     end
 
-    return elements
-end
-
-function elements:AddTagList(text, placeholder, onAddRequest, onListChanged)
+    function elements:AddTagList(text, placeholder, onAddRequest, onListChanged)
         local tags = {}
         local tagMethods = {}
         
@@ -481,5 +478,8 @@ function elements:AddTagList(text, placeholder, onAddRequest, onListChanged)
 
         return tagMethods 
     end
+
+    return elements
+end
 
 return library
