@@ -166,7 +166,7 @@ applyUniversalGradient(accentLine, 0, 0.3)
 
 create("TextLabel", { Size = UDim2.new(1, -104, 1, 0), Position = UDim2.new(0, 16, 0, 0), BackgroundTransparency = 1, Text = "Project Hub", TextColor3 = library.theme.text, TextSize = 14, Font = fontBold, TextXAlignment = Enum.TextXAlignment.Left, Parent = topBar })
 
-local closeBtn = create("TextButton", { Size = UDim2.new(0, 40, 0, 40), Position = UDim2.new(1, -40, 0, 0), BackgroundTransparency = 1, Text = "✕", TextColor3 = Color3.fromRGB(180, 180, 180), TextSize = 14, Font = fontBold, Parent = topBar })
+local closeBtn = create("TextButton", { Size = UDim2.new(0, 40, 0, 40), Position = UDim2.new(1, -40, 0, 0), BackgroundTransparency = 1, Text = "⛌", TextColor3 = Color3.fromRGB(180, 180, 180), TextSize = 14, Font = fontBold, Parent = topBar })
 local minBtn   = create("TextButton", { Size = UDim2.new(0, 40, 0, 40), Position = UDim2.new(1, -80, 0, 0), BackgroundTransparency = 1, Text = "—", TextColor3 = Color3.fromRGB(180, 180, 180), TextSize = 14, Font = fontBold, Parent = topBar })
 
 local tabContainer = create("Frame", { Size = UDim2.new(0, 155, 1, -40), Position = UDim2.new(0, 0, 0, 40), BackgroundColor3 = library.theme.tabBg, BorderSizePixel = 0, Parent = mainFrame })
