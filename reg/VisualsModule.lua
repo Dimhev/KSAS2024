@@ -148,14 +148,18 @@ visualsTab:AddSection("Performance & Optimization")
 local cullingActive = false
 local vfxActive = false
 
-local DECO_HIDE_DIST_SQ = 400 * 400
-local DEBRIS_HIDE_DIST_SQ = 180 * 180 
+local DECO_HIDE_DIST_SQ = 450 * 450
 local BATCH_SIZE = 300
+local VFX_BATCH_SIZE = 150
 
 local trackedParts = {}
-local trackedSet = setmetatable({}, { __mode = "k" })
-local vfxCache = setmetatable({}, { __mode = "k" }) 
-local currentIndex = 1
+local trackedPartsSet = setmetatable({}, { __mode = "k" })
+
+local trackedVFX = {}
+local trackedVFXSet = setmetatable({}, { __mode = "k" })
+
+local currentPartIndex = 1
+local currentVFXIndex = 1
 
 local function getBasePosition(inst)
     if inst:IsA("BasePart") then return inst.Position end
@@ -173,52 +177,80 @@ local function getBasePosition(inst)
 end
 
 local function registerObject(inst)
-    if trackedSet[inst] then return end 
-
     if inst:IsA("BasePart") then
+        if trackedPartsSet[inst] then return end
+
         local model = inst:FindFirstAncestorOfClass("Model")
         if model then
             if model:FindFirstChildOfClass("Humanoid") then return end
             if model:FindFirstChildOfClass("VehicleSeat") or model:FindFirstChildOfClass("Seat") then return end
         end
-        if inst:FindFirstAncestorOfClass("Tool") then return end
+        if inst:FindFirstAncestorOfClass("Tool") then return end 
 
-        local size = inst.Size.Magnitude
-        
-        local isDeco = (not inst.CanCollide and size < 15)
-        
-        local isDebris = (not inst.Anchored and size < 25)
-        
-        local shadowDist = size > 25 and 200 or (size > 10 and 120 or 70)
-        
-        trackedSet[inst] = true
+        if inst.Material == Enum.Material.Water or inst.Material == Enum.Material.ForceField then return end
+        local nameLower = inst.Name:lower()
+        if nameLower:find("water") or nameLower:find("ocean") or nameLower:find("sea") or nameLower:find("lake") or nameLower:find("river") then
+            return 
+        end
+
+        if inst.Transparency >= 1 and #inst:GetChildren() == 0 then return end
+
+        local realSize = inst.Size
+        local mesh = inst:FindFirstChildOfClass("SpecialMesh")
+        if mesh then
+            realSize = Vector3.new(
+                inst.Size.X * math.abs(mesh.Scale.X),
+                inst.Size.Y * math.abs(mesh.Scale.Y),
+                inst.Size.Z * math.abs(mesh.Scale.Z)
+            )
+        end
+
+        local maxDimension = math.max(realSize.X, realSize.Y, realSize.Z)
+        local sizeMag = realSize.Magnitude
+
+        local isDeco = (inst.Anchored and not inst.CanCollide and maxDimension < 15)
+
+        local shadowDist
+        if sizeMag > 50 then
+            shadowDist = 280
+        elseif sizeMag > 20 then
+            shadowDist = 180
+        elseif sizeMag > 10 then
+            shadowDist = 120
+        else
+            shadowDist = 75
+        end
+
+        trackedPartsSet[inst] = true
         table.insert(trackedParts, {
             part = inst,
             origParent = inst.Parent,
             origShadow = inst.CastShadow,
             shadowDistSq = shadowDist * shadowDist,
             isDeco = isDeco,
-            isDebris = isDebris,
             hidden = false,
             lastPos = inst.Position
         })
     end
 
-    if inst:IsA("ParticleEmitter") then 
-        trackedSet[inst] = true
-        vfxCache[inst] = { Rate = inst.Rate, Type = "Particle" }
-    elseif inst:IsA("Smoke") then 
-        trackedSet[inst] = true
-        vfxCache[inst] = { Opacity = inst.Opacity, Type = "Smoke" }
-    elseif inst:IsA("Trail") then 
-        trackedSet[inst] = true
-        vfxCache[inst] = { Lifetime = inst.Lifetime, Type = "Trail" }
-    elseif inst:IsA("Beam") then 
-        trackedSet[inst] = true
-        vfxCache[inst] = { Segments = inst.Segments, Type = "Beam" }
-    elseif inst:IsA("Light") then 
-        trackedSet[inst] = true
-        vfxCache[inst] = { Shadows = inst.Shadows, Range = inst.Range, Type = "Light" }
+    if inst:IsA("ParticleEmitter") or inst:IsA("Smoke") or inst:IsA("Trail") or inst:IsA("Beam") or inst:IsA("Light") then
+        if trackedVFXSet[inst] then return end
+        
+        local vfxData = { inst = inst }
+        if inst:IsA("ParticleEmitter") then 
+            vfxData.Type = "Particle"; vfxData.Rate = inst.Rate 
+        elseif inst:IsA("Smoke") then 
+            vfxData.Type = "Smoke"; vfxData.Opacity = inst.Opacity 
+        elseif inst:IsA("Trail") then 
+            vfxData.Type = "Trail"; vfxData.Lifetime = inst.Lifetime 
+        elseif inst:IsA("Beam") then 
+            vfxData.Type = "Beam"; vfxData.Segments = inst.Segments 
+        elseif inst:IsA("Light") then 
+            vfxData.Type = "Light"; vfxData.Shadows = inst.Shadows; vfxData.Range = inst.Range 
+        end
+
+        trackedVFXSet[inst] = vfxData
+        table.insert(trackedVFX, vfxData)
     end
 end
 
@@ -240,18 +272,20 @@ library:AddConnection(rs.Heartbeat:Connect(function(deltaTime)
     local camPos = cam.CFrame.Position
     local lookVec = cam.CFrame.LookVector
     
-    local limit = math.min(currentIndex + BATCH_SIZE - 1, #trackedParts)
-    local i = currentIndex
+    local total = #trackedParts
+    local limit = math.min(currentPartIndex + BATCH_SIZE - 1, total)
+    local i = currentPartIndex
 
     while i <= limit do
         local data = trackedParts[i]
         local part = data.part
 
-        if not part or (part.Parent == nil and not data.hidden) then
-            trackedSet[part] = nil
+        if not part or not part:IsDescendantOf(game) then
+            trackedPartsSet[part] = nil
             trackedParts[i] = trackedParts[#trackedParts]
             trackedParts[#trackedParts] = nil
-            limit = math.min(limit, #trackedParts)
+            total = #trackedParts
+            limit = math.min(limit, total)
             continue 
         end
 
@@ -264,18 +298,8 @@ library:AddConnection(rs.Heartbeat:Connect(function(deltaTime)
         local dz = data.lastPos.Z - camPos.Z
         local distSq = dx*dx + dy*dy + dz*dz
 
-        local shouldShadow = data.origShadow and (distSq <= data.shadowDistSq)
-        if part.CastShadow ~= shouldShadow then
-            part.CastShadow = shouldShadow
-        end
-
         local shouldHide = false
-        
-        if data.isDebris then
-            local isBehind = (lookVec.X*dx + lookVec.Y*dy + lookVec.Z*dz) < 0
-            shouldHide = (distSq > DEBRIS_HIDE_DIST_SQ) or (isBehind and distSq > 3600)
-            
-        elseif data.isDeco then
+        if data.isDeco then
             local isBehind = false
             if distSq > 900 then 
                 isBehind = (lookVec.X*dx + lookVec.Y*dy + lookVec.Z*dz) < 0
@@ -287,81 +311,117 @@ library:AddConnection(rs.Heartbeat:Connect(function(deltaTime)
             data.hidden = true
             part.Parent = nil 
         elseif not shouldHide and data.hidden then
-            if data.origParent and data.origParent.Parent ~= nil then
+            if data.origParent and data.origParent:IsDescendantOf(game) then
                 data.hidden = false
                 part.Parent = data.origParent 
             else
-                trackedSet[part] = nil
+                trackedPartsSet[part] = nil
                 trackedParts[i] = trackedParts[#trackedParts]
                 trackedParts[#trackedParts] = nil
-                limit = math.min(limit, #trackedParts)
+                total = #trackedParts
+                limit = math.min(limit, total)
                 continue
+            end
+        end
+
+        if not data.hidden then
+            local shouldShadow = data.origShadow and (distSq <= data.shadowDistSq)
+            if part.CastShadow ~= shouldShadow then
+                part.CastShadow = shouldShadow
             end
         end
         
         i = i + 1
     end
 
-    currentIndex = limit + 1
-    if currentIndex > #trackedParts then currentIndex = 1 end
+    currentPartIndex = limit + 1
+    if currentPartIndex > #trackedParts then currentPartIndex = 1 end
 end))
 
-task.spawn(function()
-    while task.wait(0.5) do
-        if not vfxActive then continue end
-        local cam = workspace.CurrentCamera
-        if not cam then continue end
-        local camPos = cam.Position
+library:AddConnection(rs.Heartbeat:Connect(function()
+    if not vfxActive or #trackedVFX == 0 then return end
+    
+    local cam = workspace.CurrentCamera
+    if not cam then return end
+    local camPos = cam.CFrame.Position
 
-        for inst, data in pairs(vfxCache) do
-            if not inst.Parent then continue end
-            
-            local pos = getBasePosition(inst) or camPos
-            local dx, dy, dz = pos.X - camPos.X, pos.Y - camPos.Y, pos.Z - camPos.Z
-            local distSq = dx*dx + dy*dy + dz*dz
+    local total = #trackedVFX
+    local limit = math.min(currentVFXIndex + VFX_BATCH_SIZE - 1, total)
+    local i = currentVFXIndex
 
-            if data.Type == "Particle" then
-                if distSq > 122500 then
-                    inst.Rate = data.Rate * 0.05
-                elseif distSq > 40000 then
-                    inst.Rate = data.Rate * 0.2
-                elseif distSq > 10000 then
-                    inst.Rate = data.Rate * 0.6
-                else
-                    inst.Rate = data.Rate
-                end
-            elseif data.Type == "Smoke" then
-                inst.Opacity = (distSq > 90000) and 0 or ((distSq > 22500) and (data.Opacity * 0.5) or data.Opacity)
-            elseif data.Type == "Trail" then
-                inst.Lifetime = (distSq > 40000) and 0 or data.Lifetime
-            elseif data.Type == "Beam" then
-                inst.Segments = (distSq > 40000) and math.max(1, math.floor(data.Segments * 0.2)) or data.Segments 
-            elseif data.Type == "Light" then
-                if distSq > 40000 then
-                    inst.Shadows = false
-                    inst.Range = 0
-                elseif distSq > 10000 then
-                    inst.Shadows = false
-                    inst.Range = data.Range * 0.5
-                elseif distSq > 2500 then
-                    inst.Shadows = false
-                    inst.Range = data.Range
-                else
-                    inst.Shadows = data.Shadows
-                    inst.Range = data.Range
-                end
+    while i <= limit do
+        local data = trackedVFX[i]
+        local inst = data.inst
+
+        if not inst or not inst:IsDescendantOf(workspace) then
+            if not inst or not inst:IsDescendantOf(game) then
+                trackedVFXSet[inst] = nil
+                trackedVFX[i] = trackedVFX[#trackedVFX]
+                trackedVFX[#trackedVFX] = nil
+                total = #trackedVFX
+                limit = math.min(limit, total)
+                continue
+            end
+            i = i + 1
+            continue
+        end
+
+        local pos = getBasePosition(inst) or camPos
+        local dx = pos.X - camPos.X
+        local dy = pos.Y - camPos.Y
+        local dz = pos.Z - camPos.Z
+        local distSq = dx*dx + dy*dy + dz*dz
+
+        if data.Type == "Particle" then
+            if distSq > 122500 then
+                inst.Rate = data.Rate * 0.05
+            elseif distSq > 40000 then
+                inst.Rate = data.Rate * 0.2
+            elseif distSq > 10000 then
+                inst.Rate = data.Rate * 0.6
+            else
+                inst.Rate = data.Rate
+            end
+        elseif data.Type == "Smoke" then
+            inst.Opacity = (distSq > 90000) and 0 or ((distSq > 22500) and (data.Opacity * 0.5) or data.Opacity)
+        elseif data.Type == "Trail" then
+            if distSq > 40000 then
+                inst.Lifetime = 0
+            elseif distSq > 22500 then 
+                inst.Lifetime = data.Lifetime * 0.25
+            elseif distSq > 10000 then
+                inst.Lifetime = data.Lifetime * 0.6
+            else
+                inst.Lifetime = data.Lifetime
+            end
+        elseif data.Type == "Beam" then
+            inst.Segments = (distSq > 40000) and math.max(2, math.floor(data.Segments * 0.4)) or data.Segments 
+        elseif data.Type == "Light" then
+            if distSq > 62500 then
+                inst.Shadows = false
+                inst.Range = (data.Range > 30) and (data.Range * 0.25) or 0
+            elseif distSq > 14400 then
+                inst.Shadows = false
+                inst.Range = data.Range * 0.5
+            elseif distSq > 3600 then
+                inst.Shadows = false
+                inst.Range = data.Range
+            else
+                inst.Shadows = data.Shadows
+                inst.Range = data.Range
             end
         end
+
+        i = i + 1
     end
-end)
+
+    currentVFXIndex = limit + 1
+    if currentVFXIndex > #trackedVFX then currentVFXIndex = 1 end
+end))
 
 local postFXCache = {}
-local originalShadowSoftness = nil
-
 local function togglePostProcessing(state)
     if state then
-        originalShadowSoftness = originalShadowSoftness or lighting.ShadowSoftness
-        lighting.ShadowSoftness = 0.2
         for _, v in ipairs(lighting:GetDescendants()) do
             if v:IsA("DepthOfFieldEffect") then
                 if postFXCache[v] == nil then postFXCache[v] = v.Enabled end
@@ -372,10 +432,6 @@ local function togglePostProcessing(state)
             end
         end
     else
-        if originalShadowSoftness then 
-            lighting.ShadowSoftness = originalShadowSoftness 
-            originalShadowSoftness = nil
-        end
         for v, val in pairs(postFXCache) do
             if typeof(v) == "Instance" and v.Parent then
                 if v:IsA("DepthOfFieldEffect") then v.Enabled = val
@@ -391,7 +447,7 @@ visualsTab:AddToggle("Smart Spatial Culling", function(state)
     if not state then
         for _, data in ipairs(trackedParts) do
             if data.part then
-                if data.hidden and data.origParent and data.origParent.Parent ~= nil then 
+                if data.hidden and data.origParent and data.origParent:IsDescendantOf(game) then 
                     data.part.Parent = data.origParent 
                     data.hidden = false
                 end
@@ -406,7 +462,8 @@ visualsTab:AddToggle("Distance-Based VFX", function(state)
     togglePostProcessing(state)
     
     if not state then
-        for inst, data in pairs(vfxCache) do
+        for _, data in ipairs(trackedVFX) do
+            local inst = data.inst
             if inst and inst.Parent then
                 if data.Type == "Particle" then inst.Rate = data.Rate
                 elseif data.Type == "Smoke" then inst.Opacity = data.Opacity
@@ -418,4 +475,3 @@ visualsTab:AddToggle("Distance-Based VFX", function(state)
         end
     end
 end)
-end
