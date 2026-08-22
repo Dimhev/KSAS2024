@@ -1,7 +1,6 @@
 local players = game:GetService("Players")
 local rs = game:GetService("RunService")
 local lighting = game:GetService("Lighting")
-local camera = workspace.CurrentCamera
 local lp = players.LocalPlayer
 
 return function(visualsTab, library)
@@ -81,9 +80,10 @@ return function(visualsTab, library)
         for plr, _ in pairs(espCache) do removeEspDrawing(plr) end
     end))
 
-    local cam = workspace.CurrentCamera
-
     library:AddConnection(rs.RenderStepped:Connect(function()
+        local cam = workspace.CurrentCamera 
+        if not cam then return end
+
         for plr, cache in pairs(espCache) do
             local char = plr.Character
             local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -135,6 +135,14 @@ return function(visualsTab, library)
         end
     end))
 
+    visualsTab:AddToggle("Enable ESP", "Master switch for Player ESP", function(state) espSettings.enabled = state end)
+    visualsTab:AddToggle("Boxes", "Draw 2D bounding boxes", function(state) espSettings.boxes = state end)
+    visualsTab:AddToggle("Names", "Display player DisplayName", function(state) espSettings.names = state end)
+    visualsTab:AddToggle("Health Bar", "Show dynamic health bar", function(state) espSettings.health = state end)
+    visualsTab:AddToggle("Distance", "Show distance in studs", function(state) espSettings.distance = state end)
+    visualsTab:AddToggle("Use Team Colors", "Matches ESP color to player's team", function(state) espSettings.teamColor = state end)
+    visualsTab:AddSlider("Max Distance", 100, 5000, 1500, function(val) espSettings.maxDist = val end)
+
     visualsTab:AddSection("Performance & Optimization")
     
     local cullingActive = false
@@ -173,14 +181,17 @@ return function(visualsTab, library)
     library:AddConnection(rs.Heartbeat:Connect(function()
         if not cullingActive or #trackedParts == 0 then return end
         
-        local camPos = camera.CFrame.Position
+        local cam = workspace.CurrentCamera
+        if not cam then return end
+        local camPos = cam.CFrame.Position
         local limit = math.min(currentIndex + BATCH_SIZE, #trackedParts)
 
         for i = currentIndex, limit do
             local data = trackedParts[i]
             local part = data.part
 
-            if not part or not part.Parent and part.Parent ~= nil then
+            if not part then continue end
+            if part.Parent == nil and not (data.isDeco and data.origParent ~= nil) then
                 continue 
             end
 
@@ -208,24 +219,15 @@ return function(visualsTab, library)
         end
     end))
 
-    tab:AddToggle("Smart LOD Culling", "Dynamically hides far objects & shadows", function(state)
+    visualsTab:AddToggle("Smart LOD Culling", "Dynamically hides far objects & shadows", function(state)
         cullingActive = state
         if not state then
             for _, data in ipairs(trackedParts) do
                 if data.part then
-                    if data.part.Parent == nil then data.part.Parent = data.origParent end
+                    if data.part.Parent == nil and data.origParent then data.part.Parent = data.origParent end
                     data.part.CastShadow = data.origShadow
                 end
             end
         end
     end)
-end
-
-    visualsTab:AddToggle("Enable ESP", "Master switch for Player ESP", function(state) espSettings.enabled = state end)
-    visualsTab:AddToggle("Boxes", "Draw 2D bounding boxes", function(state) espSettings.boxes = state end)
-    visualsTab:AddToggle("Names", "Display player DisplayName", function(state) espSettings.names = state end)
-    visualsTab:AddToggle("Health Bar", "Show dynamic health bar", function(state) espSettings.health = state end)
-    visualsTab:AddToggle("Distance", "Show distance in studs", function(state) espSettings.distance = state end)
-    visualsTab:AddToggle("Use Team Colors", "Matches ESP color to player's team", function(state) espSettings.teamColor = state end)
-    visualsTab:AddSlider("Max Distance", 100, 5000, 1500, function(val) espSettings.maxDist = val end)
 end
