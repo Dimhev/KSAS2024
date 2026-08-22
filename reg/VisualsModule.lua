@@ -425,7 +425,8 @@ visualsTab:AddToggle("Distance-Based VFX", function(state)
                 elseif data.Type == "Beam" then inst.Segments = data.Segments
                 elseif data.Type == "Light" then inst.Shadows = data.Shadows; inst.Range = data.Range
                 end
-            end
-        end
-    end
-end)
+             end
+         end
+     end
+  end)
+end
