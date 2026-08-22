@@ -485,6 +485,65 @@ function library:CreateTab(name)
         return tagMethods 
     end
 
+function elements:AddBind(text, defaultKey, callback)
+        local currentKey = defaultKey
+        local isBinding = false
+        
+        local bindFrame = create("TextButton", {Size = UDim2.new(1, 0, 0, 42), BackgroundColor3 = libRef.theme.elementBg, Text = "", AutoButtonColor = false, Parent = page})
+        create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = bindFrame})
+        applyStroke(bindFrame, Color3.fromRGB(255, 255, 255), 0.92)
+        applyUniversalGradient(bindFrame, 90, 0.15)
+        table.insert(libRef.themeObjects.elementBg, bindFrame)
+
+        create("TextLabel", {Size = UDim2.new(1, -70, 0, 14), Position = UDim2.new(0, 14, 0.5, -7), BackgroundTransparency = 1, Text = text, TextColor3 = libRef.theme.text, Font = fontBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, Parent = bindFrame})
+        
+        local keyContainer = create("Frame", {Size = UDim2.new(0, 70, 0, 24), Position = UDim2.new(1, -84, 0.5, -12), BackgroundColor3 = libRef.theme.innerBg, Parent = bindFrame})
+        create("UICorner", {CornerRadius = UDim.new(0, 4), Parent = keyContainer})
+        applyStroke(keyContainer, Color3.fromRGB(255, 255, 255), 0.9)
+        
+        local keyLabel = create("TextLabel", {Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = currentKey and currentKey.Name or "NONE", TextColor3 = libRef.theme.subText, Font = fontBold, TextSize = 12, Parent = keyContainer})
+
+        libRef:AddConnection(bindFrame.MouseEnter:Connect(function() ts:Create(bindFrame, TweenInfo.new(0.2), {BackgroundColor3 = libRef.theme.elementBg:Lerp(Color3.new(1,1,1), 0.05)}):Play() end))
+        libRef:AddConnection(bindFrame.MouseLeave:Connect(function() ts:Create(bindFrame, TweenInfo.new(0.2), {BackgroundColor3 = libRef.theme.elementBg}):Play() end))
+
+        libRef:AddConnection(bindFrame.MouseButton1Click:Connect(function()
+            if isBinding then return end
+            isBinding = true
+            keyLabel.Text = "..."
+            ts:Create(keyContainer, TweenInfo.new(0.2), {BackgroundColor3 = libRef.theme.accent}):Play()
+            keyLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        end))
+
+        libRef:AddConnection(uis.InputBegan:Connect(function(input, gp)
+            if isBinding and input.UserInputType == Enum.UserInputType.Keyboard then
+                local key = input.KeyCode
+                
+                if key ~= Enum.KeyCode.Escape and key ~= Enum.KeyCode.Unknown then
+                    currentKey = key
+                end
+                
+                keyLabel.Text = currentKey and currentKey.Name or "NONE"
+                isBinding = false
+                
+                ts:Create(keyContainer, TweenInfo.new(0.2), {BackgroundColor3 = libRef.theme.innerBg}):Play()
+                keyLabel.TextColor3 = libRef.theme.subText
+                return
+            end
+            
+            if not isBinding and currentKey and input.KeyCode == currentKey and not gp then
+                if callback then task.spawn(callback) end
+                
+                local tw = ts:Create(keyContainer, TweenInfo.new(0.1), {BackgroundColor3 = libRef.theme.accent})
+                tw:Play()
+                tw.Completed:Connect(function()
+                    if not isBinding then
+                        ts:Create(keyContainer, TweenInfo.new(0.2), {BackgroundColor3 = libRef.theme.innerBg}):Play()
+                    end
+                end)
+            end
+        end))
+    end
+    
     return elements
 end
 
