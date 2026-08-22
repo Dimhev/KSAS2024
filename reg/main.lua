@@ -42,7 +42,7 @@ local function createStatBlock(text, isThemeColor)
     local block = create("Frame", { Size = UDim2.new(0.33, -5, 1, 0), BackgroundColor3 = Color3.fromRGB(35, 35, 40), Parent = statsContainer })
     create("UICorner", { CornerRadius = UDim.new(0, 8), Parent = block })
     local label = create("TextLabel", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = text, TextColor3 = isThemeColor and UiLibrary.themeColor or Color3.fromRGB(220, 220, 220), Font = Enum.Font.SourceSansBold, TextSize = 14, Parent = block })
-    if isThemeColor then table.insert(UiLibrary.themeObjects, label) end
+    if isThemeColor and UiLibrary.themeObjects then table.insert(UiLibrary.themeObjects, label) end
     return label
 end
 
@@ -56,7 +56,7 @@ UiLibrary:AddConnection(rs.RenderStepped:Connect(function() frames += 1 end))
 
 task.spawn(function()
     while task.wait(1) do
-        if not UiLibrary.Gui.Parent then break end 
+        if not (UiLibrary.Gui and UiLibrary.Gui.Parent) then break end 
         fpsLabel.Text = "FPS: " .. frames; frames = 0
         local diff = os.time() - startTime
         timeLabel.Text = string.format("%02d:%02d", math.floor(diff / 60), diff % 60)
@@ -67,14 +67,18 @@ task.spawn(function()
     end
 end)
 
+getgenv().AntiAfkEnabled = false
 homeTab:AddSection("Modules")
 homeTab:AddToggle("Anti-AFK", "Automatically prevents AFK disconnects", function(state) getgenv().AntiAfkEnabled = state end)
 
 UiLibrary:AddConnection(lp.Idled:Connect(function()
     if getgenv().AntiAfkEnabled then
-        vu:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
-        task.wait(1)
-        vu:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+        local cam = workspace.CurrentCamera
+        if cam then
+            vu:Button2Down(Vector2.new(0, 0), cam.CFrame)
+            task.wait(1)
+            vu:Button2Up(Vector2.new(0, 0), cam.CFrame)
+        end
     end
 end))
 
