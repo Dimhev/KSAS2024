@@ -89,3 +89,19 @@ settingsTab:AddSection("UI Customization")
 settingsTab:AddColorPicker("Theme Color", UiLibrary.themeColor, function(color)
     UiLibrary:UpdateTheme(color)
 end)
+
+settingsTab:AddColorPicker("Accent Color", library.theme.accent, function(color)
+    library:SetAccentColor(color)
+end)
+
+settingsTab:AddColorPicker("Background Color", library.theme.mainBg, function(color)
+    library:SetMainColor(color)
+end)
+
+settingsTab:AddColorPicker("Element Color", library.theme.elementBg, function(color)
+    library:SetElementColor(color)
+end)
+
+settingsTab:AddButton("Send Test Notification", function()
+    library:Notify("Project Hub", "Settings applied successfully!", 3)
+end)
