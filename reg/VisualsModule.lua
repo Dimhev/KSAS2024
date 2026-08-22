@@ -474,5 +474,6 @@ visualsTab:AddToggle("Distance-Based VFX", function(state)
             end
         end
     end
-end)
+  end)
+ end
 end
