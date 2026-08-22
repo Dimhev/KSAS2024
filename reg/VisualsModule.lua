@@ -299,7 +299,7 @@ return function(visualsTab, library)
         end
     end
 
-    visualsTab:AddToggle("Smart Spatial Culling", " ", function(state)
+visualsTab:AddToggle("Smart Spatial Culling", function(state)
         cullingActive = state
         if not state then
             for _, data in ipairs(trackedParts) do
@@ -311,7 +311,7 @@ return function(visualsTab, library)
         end
     end)
 
-    visualsTab:AddToggle("Distance-Based VFX", " ", function(state)
+    visualsTab:AddToggle("Distance-Based VFX", function(state)
         vfxActive = state
         togglePostProcessing(state)
         
