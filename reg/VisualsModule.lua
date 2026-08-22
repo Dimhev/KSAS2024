@@ -166,16 +166,59 @@ return function(visualsTab, library)
         })
     end
 
+    local vfxActive = false
+    local fxCache = setmetatable({}, { __mode = "k" }) 
+
+    local function processFX(inst)
+        if inst:IsA("ParticleEmitter") then
+            if not fxCache[inst] then fxCache[inst] = { Rate = inst.Rate } end
+            inst.Rate = vfxActive and (fxCache[inst].Rate * 0.2) or fxCache[inst].Rate
+
+        elseif inst:IsA("Smoke") then
+            if not fxCache[inst] then fxCache[inst] = { Opacity = inst.Opacity } end
+            inst.Opacity = vfxActive and (fxCache[inst].Opacity * 0.2) or fxCache[inst].Opacity
+
+        elseif inst:IsA("Trail") then
+            if not fxCache[inst] then fxCache[inst] = { Lifetime = inst.Lifetime } end
+            inst.Lifetime = vfxActive and (fxCache[inst].Lifetime * 0.2) or fxCache[inst].Lifetime
+
+        elseif inst:IsA("DepthOfFieldEffect") or inst:IsA("BlurEffect") or inst:IsA("SunRaysEffect") then
+            if not fxCache[inst] then fxCache[inst] = { Enabled = inst.Enabled } end
+            inst.Enabled = vfxActive and false or fxCache[inst].Enabled
+
+        elseif inst:IsA("Light") then
+            if not fxCache[inst] then fxCache[inst] = { Range = inst.Range, Shadows = inst.Shadows } end
+            inst.Shadows = vfxActive and false or fxCache[inst].Shadows
+            inst.Range = vfxActive and (fxCache[inst].Range * 0.5) or fxCache[inst].Range
+        end
+    end
+
+    local function updateAllFX()
+        for inst, _ in pairs(fxCache) do
+            if inst and inst.Parent then processFX(inst) end
+        end
+    end
+
     task.spawn(function()
         local descendants = workspace:GetDescendants()
         for i, v in ipairs(descendants) do
             registerPart(v)
+            processFX(v)
             if i % 1000 == 0 then task.wait() end
+        end
+        
+        for _, v in ipairs(lighting:GetDescendants()) do
+            processFX(v)
         end
     end)
 
     library:AddConnection(workspace.DescendantAdded:Connect(function(v)
         if cullingActive then registerPart(v) end
+        processFX(v)
+    end))
+
+    library:AddConnection(lighting.DescendantAdded:Connect(function(v)
+        processFX(v)
     end))
 
     library:AddConnection(rs.Heartbeat:Connect(function()
@@ -229,5 +272,10 @@ return function(visualsTab, library)
                 end
             end
         end
+    end)
+
+    visualsTab:AddToggle("VFX & Lighting Optimizer", "Reduces particles, hides heavy effects & limits lights", function(state)
+        vfxActive = state
+        updateAllFX()
     end)
 end
