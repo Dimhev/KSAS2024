@@ -102,7 +102,7 @@ settingsTab:AddColorPicker("Element Color", UiLibrary.theme.elementBg, function(
 end)
 
 settingsTab:AddToggle("Sync Mode", "Color synchronization with the environment", function(state)
-    Uilibrary:SetSyncMode(state)
+    UiLibrary:SetSyncMode(state)
 end)
 
 settingsTab:AddButton("Send Test Notification", function()
