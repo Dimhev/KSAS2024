@@ -101,6 +101,10 @@ settingsTab:AddColorPicker("Element Color", UiLibrary.theme.elementBg, function(
     UiLibrary:SetElementColor(color)
 end)
 
+SettingsTab:AddToggle("Sync Mode", "Color synchronization with the environment", function(state)
+    Uilibrary:SetSyncMode(state)
+end)
+
 settingsTab:AddButton("Send Test Notification", function()
     UiLibrary:Notify("Project Hub", "Settings applied successfully!", 3)
 end)
