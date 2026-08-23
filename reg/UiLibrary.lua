@@ -247,35 +247,67 @@ function library:SetElementColor(color)
 end
 
 function library:SetSyncMode(state)
-    if not state then
-        for _, c in pairs(self.syncConnections) do c:Disconnect() end
-        table.clear(self.syncConnections)
-        return
+    self.syncConnections = self.syncConnections or {}
+    for _, c in pairs(self.syncConnections) do c:Disconnect() end
+    table.clear(self.syncConnections)
+
+    if self.syncProxy then
+        self.syncProxy:Destroy()
+        self.syncProxy = nil
     end
 
+    if not state then return end
+
+    local proxy = Instance.new("Folder")
+    local mainVal = Instance.new("Color3Value", proxy)
+    local elementVal = Instance.new("Color3Value", proxy)
+    local accentVal = Instance.new("Color3Value", proxy)
+    self.syncProxy = proxy
+
+    table.insert(self.syncConnections, mainVal.Changed:Connect(function(c) self:SetMainColor(c) end))
+    table.insert(self.syncConnections, elementVal.Changed:Connect(function(c) self:SetElementColor(c) end))
+    table.insert(self.syncConnections, accentVal.Changed:Connect(function(c) self:SetAccentColor(c) end))
+
+    local tweenInfo = TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+    local isFirstUpdate = true
     local lastUpdate = 0
+
     local function updateTheme()
-        if tick() - lastUpdate < 1 then return end
+        if tick() - lastUpdate < 0.1 then return end
         lastUpdate = tick()
 
-        local ambient = lighting.OutdoorAmbient
-        local h, s, v = Color3.toHSV(ambient)
-        
-        local newAccent = Color3.fromHSV(h, math.clamp(s + 0.5, 0.4, 1), 0.9)
-        
-        local isDay = lighting.ClockTime >= 6 and lighting.ClockTime <= 18
-        local lightness = isDay and 0.12 or 0.07
-        
-        local newMain = Color3.fromHSV(h, math.clamp(s * 0.25, 0, 0.15), lightness)
-        local newElement = Color3.fromHSV(h, math.clamp(s * 0.25, 0, 0.15), lightness + 0.04)
-        
-        self:SetAccentColor(newAccent)
-        self:SetMainColor(newMain)
-        self:SetElementColor(newElement)
+        local blendedAmbient = lighting.Ambient:Lerp(lighting.OutdoorAmbient, 0.7)
+        local h, s, v = Color3.toHSV(blendedAmbient)
+
+        local time = lighting.ClockTime
+        local nightFactor = (1 - math.cos((time - 12) / 24 * math.pi * 2)) / 2
+
+        local mainV = 0.12 - 0.05 * nightFactor
+        local elementV = mainV + 0.04
+
+        local accentS = math.clamp(0.25 + s * 0.75, 0.25, 0.85)
+        local accentV = 0.75 + (1 - nightFactor) * 0.15
+
+        local newMain = Color3.fromHSV(h, math.clamp(s * 0.25, 0, 0.15), mainV)
+        local newElement = Color3.fromHSV(h, math.clamp(s * 0.25, 0, 0.15), elementV)
+        local newAccent = Color3.fromHSV(h, accentS, accentV)
+
+        if isFirstUpdate then
+            mainVal.Value = newMain
+            elementVal.Value = newElement
+            accentVal.Value = newAccent
+            isFirstUpdate = false
+        else
+            tweenService:Create(mainVal, tweenInfo, {Value = newMain}):Play()
+            tweenService:Create(elementVal, tweenInfo, {Value = newElement}):Play()
+            tweenService:Create(accentVal, tweenInfo, {Value = newAccent}):Play()
+        end
     end
 
     table.insert(self.syncConnections, lighting:GetPropertyChangedSignal("OutdoorAmbient"):Connect(updateTheme))
+    table.insert(self.syncConnections, lighting:GetPropertyChangedSignal("Ambient"):Connect(updateTheme))
     table.insert(self.syncConnections, lighting:GetPropertyChangedSignal("ClockTime"):Connect(updateTheme))
+    table.insert(self.syncConnections, lighting:GetPropertyChangedSignal("Brightness"):Connect(updateTheme))
     
     updateTheme()
 end
