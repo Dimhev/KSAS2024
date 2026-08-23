@@ -2,7 +2,7 @@ local ts = game:GetService("TweenService")
 local uis = game:GetService("UserInputService")
 local cg = game:GetService("CoreGui")
 local players = game:GetService("Players")
-
+local lighting = game:GetService("Lighting") 
 local lp = players.LocalPlayer
 local parent = (gethui and gethui()) or (cg:FindFirstChild("RobloxGui") and cg) or lp:WaitForChild("PlayerGui")
 
@@ -73,6 +73,7 @@ local library = {
         elementBg = {}
     },
     _connections = {},
+    syncConnections = {},
     Gui = gui
 }
 
@@ -83,6 +84,9 @@ end
 
 gui.Destroying:Connect(function()
     for _, c in pairs(library._connections) do
+        if c.Disconnect then c:Disconnect() end
+    end
+    for _, c in pairs(library.syncConnections) do
         if c.Disconnect then c:Disconnect() end
     end
 end)
@@ -240,6 +244,40 @@ function library:SetElementColor(color)
     for _, obj in pairs(self.themeObjects.elementBg) do
         ts:Create(obj, TweenInfo.new(0.3), {BackgroundColor3 = color}):Play()
     end
+end
+
+function library:SetSyncMode(state)
+    if not state then
+        for _, c in pairs(self.syncConnections) do c:Disconnect() end
+        table.clear(self.syncConnections)
+        return
+    end
+
+    local lastUpdate = 0
+    local function updateTheme()
+        if tick() - lastUpdate < 1 then return end
+        lastUpdate = tick()
+
+        local ambient = lighting.OutdoorAmbient
+        local h, s, v = Color3.toHSV(ambient)
+        
+        local newAccent = Color3.fromHSV(h, math.clamp(s + 0.5, 0.4, 1), 0.9)
+        
+        local isDay = lighting.ClockTime >= 6 and lighting.ClockTime <= 18
+        local lightness = isDay and 0.12 or 0.07
+        
+        local newMain = Color3.fromHSV(h, math.clamp(s * 0.25, 0, 0.15), lightness)
+        local newElement = Color3.fromHSV(h, math.clamp(s * 0.25, 0, 0.15), lightness + 0.04)
+        
+        self:SetAccentColor(newAccent)
+        self:SetMainColor(newMain)
+        self:SetElementColor(newElement)
+    end
+
+    table.insert(self.syncConnections, lighting:GetPropertyChangedSignal("OutdoorAmbient"):Connect(updateTheme))
+    table.insert(self.syncConnections, lighting:GetPropertyChangedSignal("ClockTime"):Connect(updateTheme))
+    
+    updateTheme()
 end
 
 function library:CreateTab(name)
