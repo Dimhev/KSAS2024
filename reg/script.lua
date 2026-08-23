@@ -53,21 +53,32 @@ local pingLabel = createStatBlock("Ping: 0ms", false)
 local timeLabel = createStatBlock("00:00", false)
 
 local startTime = os.time()
+local lastUpdate = os.clock()
 local frames = 0
-UiLibrary:AddConnection(rs.RenderStepped:Connect(function() frames += 1 end))
 
-task.spawn(function()
-    while task.wait(1) do
-        if not (UiLibrary.Gui and UiLibrary.Gui.Parent) then break end 
-        fpsLabel.Text = "FPS: " .. frames; frames = 0
+UiLibrary:AddConnection(rs.RenderStepped:Connect(function()
+    frames += 1
+    local now = os.clock()
+    
+    if now - lastUpdate >= 1 then
+        if not (UiLibrary.Gui and UiLibrary.Gui.Parent) then return end 
+        
+        fpsLabel.Text = "FPS: " .. frames
+        frames = 0
+        lastUpdate = now
+        
         local diff = os.time() - startTime
         timeLabel.Text = string.format("%02d:%02d", math.floor(diff / 60), diff % 60)
+        
         pcall(function()
-            local p = string.match(stats.Network.ServerStatsItem["Data Ping"]:GetValueString(), "%d+")
-            pingLabel.Text = "Ping: " .. (p or 0) .. "ms"
+            local ping = math.round(lp:GetNetworkPing() * 1000)
+            if ping == 0 then
+                ping = math.round(stats.Network.ServerStatsItem["Data Ping"]:GetValue())
+            end
+            pingLabel.Text = "Ping: " .. ping .. "ms"
         end)
     end
-end)
+end))
 
 getgenv().AntiAfkEnabled = false
 homeTab:AddSection("Modules")
