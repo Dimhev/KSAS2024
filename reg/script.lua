@@ -101,7 +101,7 @@ settingsTab:AddColorPicker("Element Color", UiLibrary.theme.elementBg, function(
     UiLibrary:SetElementColor(color)
 end)
 
-SettingsTab:AddToggle("Sync Mode", "Color synchronization with the environment", function(state)
+settingsTab:AddToggle("Sync Mode", "Color synchronization with the environment", function(state)
     Uilibrary:SetSyncMode(state)
 end)
 
