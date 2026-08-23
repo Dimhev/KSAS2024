@@ -298,9 +298,9 @@ function library:SetSyncMode(state)
             accentVal.Value = newAccent
             isFirstUpdate = false
         else
-            tweenService:Create(mainVal, tweenInfo, {Value = newMain}):Play()
-            tweenService:Create(elementVal, tweenInfo, {Value = newElement}):Play()
-            tweenService:Create(accentVal, tweenInfo, {Value = newAccent}):Play()
+            ts:Create(mainVal, tweenInfo, {Value = newMain}):Play()
+            ts:Create(elementVal, tweenInfo, {Value = newElement}):Play()
+            ts:Create(accentVal, tweenInfo, {Value = newAccent}):Play()
         end
     end
 
