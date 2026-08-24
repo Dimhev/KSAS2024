@@ -3,6 +3,8 @@ local rs = game:GetService("RunService")
 local mps = game:GetService("MarketplaceService")
 local stats = game:GetService("Stats")
 local vu = game:GetService("VirtualUser")
+local tps = game:GetService("TeleportService")
+local http = game:GetService("HttpService")
 local lp = players.LocalPlayer
 
 local function create(className, properties)
@@ -94,6 +96,69 @@ UiLibrary:AddConnection(lp.Idled:Connect(function()
         end
     end
 end))
+
+homeTab:AddSection("Server Options")
+
+homeTab:AddButton("Rejoin Server", function()
+    UiLibrary:Notify("Rejoin", "Rejoining current server...", 3)
+    tps:TeleportToPlaceInstance(game.PlaceId, game.JobId, lp)
+end)
+
+homeTab:AddButton("Server Hop", function()
+    local fileName = "ProjectHub_HopLog.json"
+    local visited = {}
+    
+    if isfile and isfile(fileName) then
+        pcall(function()
+            visited = http:JSONDecode(readfile(fileName))
+        end)
+    end
+    
+    visited[game.JobId] = true
+    if writefile then
+        pcall(function() writefile(fileName, http:JSONEncode(visited)) end)
+    end
+
+    UiLibrary:Notify("Server Hop", "Searching for a new server...", 5)
+
+    local cursor = ""
+    local found = false
+    
+    while not found do
+        local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
+        if cursor ~= "" then url = url .. "&cursor=" .. cursor end
+        
+        local req = request or http_request or (syn and syn.request)
+        local res = req and req({Url = url, Method = "GET"}) or {Body = game:HttpGet(url)}
+        
+        if res and res.Body then
+            local success, body = pcall(function() return http:JSONDecode(res.Body) end)
+            if success and body and body.data then
+                for _, server in pairs(body.data) do
+                    if type(server) == "table" and server.id and server.playing and server.maxPlayers then
+                        if server.playing < server.maxPlayers and not visited[server.id] and server.id ~= game.JobId then
+                            found = true
+                            UiLibrary:Notify("Server Hop", "Teleporting...", 3)
+                            tps:TeleportToPlaceInstance(game.PlaceId, server.id, lp)
+                            return
+                        end
+                    end
+                end
+                cursor = body.nextPageCursor
+                if not cursor then break end 
+            else
+                break
+            end
+        else
+            break
+        end
+    end
+    
+    if not found then
+        UiLibrary:Notify("Error", "No new servers found. Resetting history.", 3)
+        if writefile then pcall(function() writefile(fileName, "{}") end) end
+    end
+end)
 
 PlayerModule(playerTab, UiLibrary)
 VisualsModule(visualsTab, UiLibrary)
