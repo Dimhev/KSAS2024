@@ -613,6 +613,87 @@ function elements:AddBind(text, defaultKey, callback)
             end
         end))
     end
+
+    function elements:AddDropdown(text, options, defaultOption, callback)
+    local selected = defaultOption or options[1]
+    local expanded = false
+    
+    local dpFrame = create("Frame", {
+        Size = UDim2.new(1, 0, 0, 42),
+        BackgroundColor3 = libRef.theme.elementBg,
+        ClipsDescendants = true,
+        Parent = page
+    })
+    create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = dpFrame})
+    applyStroke(dpFrame, Color3.fromRGB(255, 255, 255), 0.92)
+    applyUniversalGradient(dpFrame, 90, 0.15)
+    table.insert(libRef.themeObjects.elementBg, dpFrame)
+
+    local dpBtn = create("TextButton", {
+        Size = UDim2.new(1, 0, 0, 42),
+        BackgroundTransparency = 1,
+        Text = "    " .. text,
+        TextColor3 = libRef.theme.text,
+        Font = fontBold,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = dpFrame
+    })
+
+    local valLabel = create("TextLabel", {
+        Size = UDim2.new(0, 140, 0, 42),
+        Position = UDim2.new(1, -150, 0, 0),
+        BackgroundTransparency = 1,
+        Text = tostring(selected) .. "  ▼",
+        TextColor3 = libRef.theme.subText,
+        Font = fontBold,
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Right,
+        Parent = dpFrame
+    })
+
+    local optionContainer = create("Frame", {
+        Size = UDim2.new(1, -24, 0, #options * 28),
+        Position = UDim2.new(0, 12, 0, 44),
+        BackgroundTransparency = 1,
+        Parent = dpFrame
+    })
+    create("UIListLayout", {Padding = UDim.new(0, 4), Parent = optionContainer})
+
+    for _, optName in ipairs(options) do
+        local optBtn = create("TextButton", {
+            Size = UDim2.new(1, 0, 0, 26),
+            BackgroundColor3 = libRef.theme.innerBg,
+            Text = optName,
+            TextColor3 = (optName == selected) and libRef.theme.accent or libRef.theme.text,
+            Font = fontRegular,
+            TextSize = 12,
+            Parent = optionContainer
+        })
+        create("UICorner", {CornerRadius = UDim.new(0, 4), Parent = optBtn})
+        
+        libRef:AddConnection(optBtn.MouseButton1Click:Connect(function()
+            selected = optName
+            valLabel.Text = tostring(selected) .. "  ▼"
+            expanded = false
+            ts:Create(dpFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {Size = UDim2.new(1, 0, 0, 42)}):Play()
+            
+            for _, child in ipairs(optionContainer:GetChildren()) do
+                if child:IsA("TextButton") then
+                    child.TextColor3 = (child.Text == selected) and libRef.theme.accent or libRef.theme.text
+                end
+            end
+            
+            if callback then callback(selected) end
+        end))
+    end
+
+    libRef:AddConnection(dpBtn.MouseButton1Click:Connect(function()
+        expanded = not expanded
+        local targetHeight = expanded and (48 + #options * 30) or 42
+        ts:Create(dpFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {Size = UDim2.new(1, 0, 0, targetHeight)}):Play()
+    end))
+end
     
     return elements
 end
