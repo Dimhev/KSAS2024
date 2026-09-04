@@ -66,7 +66,7 @@ return function(playerTab, library)
 
         local cam = workspace.CurrentCamera or workspace
         local plat = Instance.new("Part")
-        plat.Name = "Platform"
+        plat.Name = "Platform" 
         plat.Size = Vector3.new(18, 1, 18)
         
         local spawnY = hrp.Position.Y - platformHeight
@@ -75,8 +75,8 @@ return function(playerTab, library)
         
         plat.Anchored = true
         plat.CanCollide = true
-        plat.CanTouch = false
-        plat.CanQuery = false
+        plat.CanTouch = false 
+        plat.CanQuery = false 
         plat.Archivable = false
         plat.Transparency = 0.4
         plat.Material = Enum.Material.SmoothPlastic
@@ -100,6 +100,37 @@ return function(playerTab, library)
         platformObj = plat
         isRecreating = false
     end
+    
+    local function setSpeed(state)
+        speedEnabled = state
+        local character = lp.Character
+        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            if state then
+                originalWalkSpeed = humanoid.WalkSpeed
+            else
+                humanoid.WalkSpeed = originalWalkSpeed or 16
+            end
+        end
+        notify("Speedhack", state and ("Enabled (" .. speedMethod .. ")") or "Disabled")
+    end
+
+    playerTab:AddDropdown("Speed Method", {"Stealth (LinearVelocity)", "CFrame", "WalkSpeed"}, "Stealth (LinearVelocity)", function(selected)
+        speedMethod = selected
+        local character = lp.Character
+        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+        if humanoid and not speedEnabled then
+            humanoid.WalkSpeed = originalWalkSpeed or 16
+        end
+    end)
+
+    playerTab:AddToggle("Enable Speed", "Toggle movement speedhack", function(state)
+        setSpeed(state)
+    end)
+
+    playerTab:AddSlider("Speed Value", 16, 300, 16, function(val)
+        targetSpeed = val
+    end)
 
     local function setInfJump(state)
         infJumpEnabled = state
@@ -160,6 +191,48 @@ return function(playerTab, library)
         end
     end))
 
+    playerTab:AddToggle("Infinite Jump", "Jump infinitely in air", function(state)
+        setInfJump(state)
+    end)
+
+    playerTab:AddBind("Toggle InfJump Key", Enum.KeyCode.J, function()
+        setInfJump(not infJumpEnabled)
+    end)
+
+    playerTab:AddSlider("Inf Jump Force", 30, 200, 50, function(val)
+        infJumpPower = val
+    end)
+
+    playerTab:AddSlider("Platform Fall Speed", 1, 100, 20, function(val)
+        platformFallSpeed = val
+    end)
+
+    playerTab:AddToggle("Enable JumpPower Mod", "Override humanoid JumpPower", function(state)
+        jumpPowerEnabled = state
+        local character = lp.Character
+        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+        if not state and humanoid then
+            humanoid.JumpPower = originalJumpPower
+        end
+        notify("JumpPower Mod", state and "Enabled" or "Restored")
+    end)
+
+    playerTab:AddSlider("JumpPower", 10, 500, originalJumpPower, function(val)
+        savedJumpPower = val
+    end)
+
+    playerTab:AddToggle("Enable Gravity Mod", "Override workspace Gravity", function(state)
+        gravityEnabled = state
+        if not state then
+            workspace.Gravity = originalGravity
+        end
+        notify("Gravity Mod", state and "Enabled" or "Restored")
+    end)
+
+    playerTab:AddSlider("Gravity", 0, 400, math.floor(originalGravity), function(val)
+        savedGravity = val
+    end)
+
     library:AddConnection(rs.Heartbeat:Connect(function(dt)
         local character = lp.Character
         local hrp = character and character:FindFirstChild("HumanoidRootPart")
@@ -186,7 +259,6 @@ return function(playerTab, library)
                 end
             end
         end
-
         if infJumpEnabled and infJumpMethod == "PlatformJump" then
             if not platformObj or not platformObj.Parent then
                 createPlatform()
@@ -215,7 +287,7 @@ return function(playerTab, library)
             destroyPlatform()
         end
     end))
-
+    
     playerTab:AddSection("Defense & Utils")
 
     local blockedLookup = {}
