@@ -49,8 +49,8 @@ return function(playerTab, library)
         if not hrp then return end
 
         local plat = Instance.new("Part")
-        plat.Name = "InfJumpFollowPlatform"
-        plat.Size = Vector3.new(18, 1, 18)
+        plat.Name = "Platform"
+        plat.Size = Vector3.new(15, 1, 15)
         plat.CFrame = hrp.CFrame * CFrame.new(0, -platformHeight, 0)
         plat.Anchored = true
         plat.CanCollide = true
