@@ -23,15 +23,15 @@ return function(playerTab, library)
     local smoothRate = 8
 
     local infJumpEnabled = false
-    local infJumpMethod = "VelocityJump" 
+    local infJumpMethod = "VelocityJump"
     local infJumpPower = 50
     local lastJump = 0
     local jumpCooldown = 0.12
 
     local platformObj = nil
-    local platformFollowSpeed = 25
-    local platformRiseSpeed = 30
-    local platformFallSpeed = 2.5 
+    local platformFollowSpeed = 60
+    local platformRiseSpeed = 40
+    local platformFallSpeed = 2
     local platformHeight = 3.2
 
     local function destroyPlatform()
@@ -50,7 +50,7 @@ return function(playerTab, library)
 
         local plat = Instance.new("Part")
         plat.Name = "InfJumpFollowPlatform"
-        plat.Size = Vector3.new(6, 0.8, 6)
+        plat.Size = Vector3.new(18, 1, 18)
         plat.CFrame = hrp.CFrame * CFrame.new(0, -platformHeight, 0)
         plat.Anchored = true
         plat.CanCollide = true
@@ -101,7 +101,6 @@ return function(playerTab, library)
 
         if tick() - lastJump >= jumpCooldown and humanoid:GetState() ~= Enum.HumanoidStateType.Seated then
             lastJump = tick()
-            
             humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
             hrp.AssemblyLinearVelocity = Vector3.new(
                 hrp.AssemblyLinearVelocity.X,
@@ -198,19 +197,17 @@ return function(playerTab, library)
                 local targetY = currentPos.Y
 
                 local playerVelY = hrp.AssemblyLinearVelocity.Y
+                local idealY = hrpPos.Y - platformHeight
 
                 if playerVelY > 0.5 then
-                    local idealY = hrpPos.Y - platformHeight
                     targetY = targetY + (idealY - targetY) * math.clamp(dt * platformRiseSpeed, 0, 1)
                 elseif playerVelY < -0.5 then
                     targetY = currentPos.Y - (platformFallSpeed * dt)
-                    
-                    local idealY = hrpPos.Y - platformHeight
                     if targetY < idealY then
                         targetY = idealY
                     end
                 else
-                    targetY = hrpPos.Y - platformHeight
+                    targetY = idealY
                 end
 
                 local newX = currentPos.X + (targetX - currentPos.X) * math.clamp(dt * platformFollowSpeed, 0, 1)
