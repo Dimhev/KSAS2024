@@ -23,11 +23,44 @@ return function(playerTab, library)
     local smoothRate = 8
 
     local infJumpEnabled = false
-    local infJumpMethod = "Velocity Jump" 
+    local infJumpMethod = "VelocityJump" 
     local infJumpPower = 50
     local lastJump = 0
     local jumpCooldown = 0.12
-    local activePlatform = nil
+
+    local platformObj = nil
+    local platformFollowSpeed = 25
+    local platformRiseSpeed = 30
+    local platformFallSpeed = 2.5 
+    local platformHeight = 3.2
+
+    local function destroyPlatform()
+        if platformObj then
+            platformObj:Destroy()
+            platformObj = nil
+        end
+    end
+
+    local function createPlatform()
+        destroyPlatform()
+        local character = lp.Character
+        if not character then return end
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+
+        local plat = Instance.new("Part")
+        plat.Name = "InfJumpFollowPlatform"
+        plat.Size = Vector3.new(6, 0.8, 6)
+        plat.CFrame = hrp.CFrame * CFrame.new(0, -platformHeight, 0)
+        plat.Anchored = true
+        plat.CanCollide = true
+        plat.Transparency = 0.3
+        plat.Material = Enum.Material.SmoothPlastic
+        plat.Color = Color3.fromRGB(0, 170, 255)
+        plat.Parent = workspace
+        
+        platformObj = plat
+    end
 
     playerTab:AddDropdown("Speed Method", {"Stealth (LinearVelocity)", "CFrame", "WalkSpeed"}, "Stealth (LinearVelocity)", function(selected)
         speedMethod = selected
@@ -48,11 +81,12 @@ return function(playerTab, library)
         targetSpeed = val
     end)
 
-    playerTab:AddDropdown("InfJump Method", {"Velocity Jump", "Platform Jump"}, "Velocity Jump", function(selected)
+    playerTab:AddDropdown("InfJump Method", {"VelocityJump", "PlatformJump"}, "VelocityJump", function(selected)
         infJumpMethod = selected
-        if activePlatform then
-            activePlatform:Destroy()
-            activePlatform = nil
+        if infJumpEnabled and infJumpMethod == "PlatformJump" then
+            createPlatform()
+        else
+            destroyPlatform()
         end
     end)
 
@@ -67,56 +101,35 @@ return function(playerTab, library)
 
         if tick() - lastJump >= jumpCooldown and humanoid:GetState() ~= Enum.HumanoidStateType.Seated then
             lastJump = tick()
-
-            if infJumpMethod == "Velocity Jump" then
-                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-                hrp.AssemblyLinearVelocity = Vector3.new(
-                    hrp.AssemblyLinearVelocity.X,
-                    infJumpPower,
-                    hrp.AssemblyLinearVelocity.Z
-                )
-            elseif infJumpMethod == "Platform Jump" then
-                if activePlatform then activePlatform:Destroy() end
-
-                local plat = Instance.new("Part")
-                plat.Name = "InfJumpTempPlatform"
-                plat.Size = Vector3.new(5, 0.6, 5)
-                plat.CFrame = hrp.CFrame * CFrame.new(0, -3.2, 0)
-                plat.Anchored = true
-                plat.CanCollide = true
-                plat.Transparency = 1
-                plat.Material = Enum.Material.SmoothPlastic
-                plat.Parent = workspace
-
-                activePlatform = plat
-                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-
-                task.delay(0.2, function()
-                    if plat and plat.Parent then
-                        plat:Destroy()
-                    end
-                    if activePlatform == plat then activePlatform = nil end
-                end)
-            end
+            
+            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            hrp.AssemblyLinearVelocity = Vector3.new(
+                hrp.AssemblyLinearVelocity.X,
+                infJumpPower,
+                hrp.AssemblyLinearVelocity.Z
+            )
         end
     end))
 
     local infJumpToggle = playerTab:AddToggle("Infinite Jump", "Jump infinitely in air", function(state)
         infJumpEnabled = state
-        if not state and activePlatform then
-            activePlatform:Destroy()
-            activePlatform = nil
+        if state and infJumpMethod == "PlatformJump" then
+            createPlatform()
+        else
+            destroyPlatform()
         end
         notify("Infinite Jump", state and ("Enabled (" .. infJumpMethod .. ")") or "Disabled")
     end)
 
     playerTab:AddSlider("Inf Jump Force", 30, 200, 50, function(val) infJumpPower = val end)
+    playerTab:AddSlider("Platform Fall Speed", 1, 10, 2, function(val) platformFallSpeed = val end)
 
     playerTab:AddBind("Toggle InfJump Key", Enum.KeyCode.J, function()
         infJumpEnabled = not infJumpEnabled
-        if not infJumpEnabled and activePlatform then
-            activePlatform:Destroy()
-            activePlatform = nil
+        if infJumpEnabled and infJumpMethod == "PlatformJump" then
+            createPlatform()
+        else
+            destroyPlatform()
         end
         notify("Infinite Jump", infJumpEnabled and ("Enabled (" .. infJumpMethod .. ")") or "Disabled")
     end)
@@ -132,10 +145,17 @@ return function(playerTab, library)
         end
 
         local character = lp.Character
-        if not character then return end
+        if not character then 
+            destroyPlatform()
+            return 
+        end
+        
         local hrp = character:FindFirstChild("HumanoidRootPart")
         local humanoid = character:FindFirstChildOfClass("Humanoid")
-        if not humanoid or not hrp or humanoid.Health <= 0 then return end
+        if not humanoid or not hrp or humanoid.Health <= 0 then 
+            destroyPlatform()
+            return 
+        end
 
         if not humanoid.UseJumpPower then humanoid.UseJumpPower = true end
         if math.abs(humanoid.JumpPower - savedJumpPower) > 0.05 then
@@ -162,6 +182,44 @@ return function(playerTab, library)
             if humanoid.WalkSpeed ~= 16 and speedMethod ~= "WalkSpeed" then
                 humanoid.WalkSpeed = 16
             end
+        end
+
+        if infJumpEnabled and infJumpMethod == "PlatformJump" then
+            if not platformObj or not platformObj.Parent then
+                createPlatform()
+            end
+
+            if platformObj then
+                local currentPos = platformObj.Position
+                local hrpPos = hrp.Position
+                
+                local targetX = hrpPos.X
+                local targetZ = hrpPos.Z
+                local targetY = currentPos.Y
+
+                local playerVelY = hrp.AssemblyLinearVelocity.Y
+
+                if playerVelY > 0.5 then
+                    local idealY = hrpPos.Y - platformHeight
+                    targetY = targetY + (idealY - targetY) * math.clamp(dt * platformRiseSpeed, 0, 1)
+                elseif playerVelY < -0.5 then
+                    targetY = currentPos.Y - (platformFallSpeed * dt)
+                    
+                    local idealY = hrpPos.Y - platformHeight
+                    if targetY < idealY then
+                        targetY = idealY
+                    end
+                else
+                    targetY = hrpPos.Y - platformHeight
+                end
+
+                local newX = currentPos.X + (targetX - currentPos.X) * math.clamp(dt * platformFollowSpeed, 0, 1)
+                local newZ = currentPos.Z + (targetZ - currentPos.Z) * math.clamp(dt * platformFollowSpeed, 0, 1)
+
+                platformObj.CFrame = CFrame.new(Vector3.new(newX, targetY, newZ))
+            end
+        else
+            destroyPlatform()
         end
     end))
 
@@ -330,11 +388,7 @@ return function(playerTab, library)
 
     library:AddConnection(lp.CharacterAdded:Connect(function(newChar)
         stopFly()
-        
-        if activePlatform then
-            activePlatform:Destroy()
-            activePlatform = nil
-        end
+        destroyPlatform()
 
         local hum = newChar:WaitForChild("Humanoid", 5)
         if hum then
