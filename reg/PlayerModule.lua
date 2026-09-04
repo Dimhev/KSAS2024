@@ -28,79 +28,83 @@ return function(playerTab, library)
     local jumpPowerEnabled = false
 
     local infJumpEnabled = false
-    local infJumpMethod = "VelocityJump"
+    local infJumpMethod = "PlatformJump"
     local infJumpPower = 50
     local lastJump = 0
     local jumpCooldown = 0.12
 
     local platformObj = nil
-    local platformFollowSpeed = 25
     local platformFallSpeed = 20
-    local platformHeight = 3.2
+    local platformHeight = 3.3
+    local platformY = nil 
+    local isRecreating = false
 
     local function destroyPlatform()
+        if platformObj then
+            local p = platformObj
+            platformObj = nil
+            p:Destroy()
+        end
+        platformY = nil
+    end
+
+    local function createPlatform()
+        if isRecreating then return end
+        isRecreating = true
+
         if platformObj then
             platformObj:Destroy()
             platformObj = nil
         end
-    end
 
-    local function createPlatform()
-        destroyPlatform()
         local character = lp.Character
         local hrp = character and character:FindFirstChild("HumanoidRootPart")
-        if not hrp then return end
+        if not hrp then 
+            isRecreating = false 
+            return 
+        end
 
+        local cam = workspace.CurrentCamera or workspace
         local plat = Instance.new("Part")
-        plat.Name = "SafetyPlatform"
-        plat.Size = Vector3.new(12, 1, 12)
-        plat.CFrame = hrp.CFrame * CFrame.new(0, -platformHeight, 0)
+        plat.Name = "Platform"
+        plat.Size = Vector3.new(18, 1, 18)
+        
+        local spawnY = hrp.Position.Y - platformHeight
+        platformY = platformY or spawnY
+        plat.CFrame = CFrame.new(hrp.Position.X, platformY, hrp.Position.Z)
+        
         plat.Anchored = true
         plat.CanCollide = true
-        plat.CanTouch = false 
+        plat.CanTouch = false
         plat.CanQuery = false
+        plat.Archivable = false
         plat.Transparency = 0.4
         plat.Material = Enum.Material.SmoothPlastic
         plat.Color = Color3.fromRGB(0, 170, 255)
-        plat.Parent = workspace
+        plat.Parent = cam
 
-        platformObj = plat
-    end
-
-    local function setSpeed(state)
-        speedEnabled = state
-        local character = lp.Character
-        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            if state then
-                originalWalkSpeed = humanoid.WalkSpeed
-            else
-                humanoid.WalkSpeed = originalWalkSpeed or 16
+        local function onDeleted()
+            if infJumpEnabled and infJumpMethod == "PlatformJump" then
+                task.defer(function()
+                    isRecreating = false
+                    createPlatform()
+                end)
             end
         end
-        notify("Speedhack", state and ("Enabled (" .. speedMethod .. ")") or "Disabled")
+
+        plat.Destroying:Connect(onDeleted)
+        plat.AncestryChanged:Connect(function(_, parent)
+            if not parent then onDeleted() end
+        end)
+
+        platformObj = plat
+        isRecreating = false
     end
-
-    playerTab:AddDropdown("Speed Method", {"Stealth (LinearVelocity)", "CFrame", "WalkSpeed"}, "Stealth (LinearVelocity)", function(selected)
-        speedMethod = selected
-        local character = lp.Character
-        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-        if humanoid and not speedEnabled then
-            humanoid.WalkSpeed = originalWalkSpeed or 16
-        end
-    end)
-
-    playerTab:AddToggle("Enable Speed", "Toggle movement speedhack", function(state)
-        setSpeed(state)
-    end)
-
-    playerTab:AddSlider("Speed Value", 16, 300, 16, function(val)
-        targetSpeed = val
-    end)
 
     local function setInfJump(state)
         infJumpEnabled = state
         if state and infJumpMethod == "PlatformJump" then
+            platformY = nil
             createPlatform()
         else
             destroyPlatform()
@@ -108,9 +112,10 @@ return function(playerTab, library)
         notify("Infinite Jump", state and ("Enabled (" .. infJumpMethod .. ")") or "Disabled")
     end
 
-    playerTab:AddDropdown("InfJump Method", {"VelocityJump", "PlatformJump"}, "VelocityJump", function(selected)
+    playerTab:AddDropdown("InfJump Method", {"VelocityJump", "PlatformJump"}, "PlatformJump", function(selected)
         infJumpMethod = selected
         if infJumpEnabled and infJumpMethod == "PlatformJump" then
+            platformY = nil
             createPlatform()
         else
             destroyPlatform()
@@ -118,73 +123,44 @@ return function(playerTab, library)
     end)
 
     library:AddConnection(uis.JumpRequest:Connect(function()
-        if not infJumpEnabled or infJumpMethod ~= "VelocityJump" then return end
+        if not infJumpEnabled then return end
         if uis:GetFocusedTextBox() then return end
 
         local character = lp.Character
         local humanoid = character and character:FindFirstChildOfClass("Humanoid")
         local hrp = character and character:FindFirstChild("HumanoidRootPart")
-
         if not humanoid or not hrp or humanoid.Health <= 0 then return end
 
-        if os.clock() - lastJump >= jumpCooldown and humanoid:GetState() ~= Enum.HumanoidStateType.Seated then
-            lastJump = os.clock()
+        if os.clock() - lastJump < jumpCooldown then return end
+        if humanoid:GetState() == Enum.HumanoidStateType.Seated then return end
+
+        lastJump = os.clock()
+
+        if infJumpMethod == "VelocityJump" then
             humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
             hrp.AssemblyLinearVelocity = Vector3.new(
                 hrp.AssemblyLinearVelocity.X,
                 infJumpPower,
                 hrp.AssemblyLinearVelocity.Z
             )
+        elseif infJumpMethod == "PlatformJump" then
+            platformY = hrp.Position.Y - platformHeight
+            if platformObj and platformObj.Parent then
+                platformObj.CFrame = CFrame.new(hrp.Position.X, platformY, hrp.Position.Z)
+            else
+                createPlatform()
+            end
+
+            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            hrp.AssemblyLinearVelocity = Vector3.new(
+                hrp.AssemblyLinearVelocity.X,
+                math.max(hrp.AssemblyLinearVelocity.Y, infJumpPower),
+                hrp.AssemblyLinearVelocity.Z
+            )
         end
     end))
 
-    playerTab:AddToggle("Infinite Jump", "Jump infinitely in air", function(state)
-        setInfJump(state)
-    end)
-
-    playerTab:AddBind("Toggle InfJump Key", Enum.KeyCode.J, function()
-        setInfJump(not infJumpEnabled)
-    end)
-
-    playerTab:AddSlider("Inf Jump Force", 30, 200, 50, function(val)
-        infJumpPower = val
-    end)
-
-    playerTab:AddSlider("Platform Fall Speed", 1, 100, 20, function(val)
-        platformFallSpeed = val
-    end)
-
-    playerTab:AddToggle("Enable JumpPower Mod", "Override humanoid JumpPower", function(state)
-        jumpPowerEnabled = state
-        local character = lp.Character
-        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-        if not state and humanoid then
-            humanoid.JumpPower = originalJumpPower
-        end
-        notify("JumpPower Mod", state and "Enabled" or "Restored")
-    end)
-
-    playerTab:AddSlider("JumpPower", 10, 500, originalJumpPower, function(val)
-        savedJumpPower = val
-    end)
-
-    playerTab:AddToggle("Enable Gravity Mod", "Override workspace Gravity", function(state)
-        gravityEnabled = state
-        if not state then
-            workspace.Gravity = originalGravity
-        end
-        notify("Gravity Mod", state and "Enabled" or "Restored")
-    end)
-
-    playerTab:AddSlider("Gravity", 0, 400, math.floor(originalGravity), function(val)
-        savedGravity = val
-    end)
-
     library:AddConnection(rs.Heartbeat:Connect(function(dt)
-        if gravityEnabled and workspace.Gravity ~= savedGravity then
-            workspace.Gravity = savedGravity
-        end
-
         local character = lp.Character
         local hrp = character and character:FindFirstChild("HumanoidRootPart")
         local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -192,13 +168,6 @@ return function(playerTab, library)
         if not character or not humanoid or not hrp or humanoid.Health <= 0 then
             destroyPlatform()
             return
-        end
-
-        if jumpPowerEnabled then
-            if not humanoid.UseJumpPower then humanoid.UseJumpPower = true end
-            if humanoid.JumpPower ~= savedJumpPower then
-                humanoid.JumpPower = savedJumpPower
-            end
         end
 
         if speedEnabled then
@@ -224,27 +193,23 @@ return function(playerTab, library)
             end
 
             if platformObj then
-                local currentPos = platformObj.Position
                 local hrpPos = hrp.Position
-                local playerVelY = hrp.AssemblyLinearVelocity.Y
+                local hrpVel = hrp.AssemblyLinearVelocity
                 local idealY = hrpPos.Y - platformHeight
 
-                local targetY = currentPos.Y
-                if playerVelY > 0.5 then
-                    targetY = currentPos.Y
-                elseif playerVelY < -0.5 then
-                    if idealY < currentPos.Y then
-                        targetY = math.max(idealY, currentPos.Y - (platformFallSpeed * dt))
-                    end
-                else
-                    targetY = currentPos.Y + (idealY - currentPos.Y) * (1 - math.exp(-15 * dt))
+                if not platformY then
+                    platformY = idealY
                 end
 
-                local lerpFactor = 1 - math.exp(-platformFollowSpeed * dt)
-                local newX = currentPos.X + (hrpPos.X - currentPos.X) * lerpFactor
-                local newZ = currentPos.Z + (hrpPos.Z - currentPos.Z) * lerpFactor
+                if idealY < platformY then
+                    platformY = idealY
+                elseif hrpVel.Y <= 0.5 then
+                    platformY = platformY - (platformFallSpeed * dt)
+                end
+                local targetX = hrpPos.X + (hrpVel.X * dt)
+                local targetZ = hrpPos.Z + (hrpVel.Z * dt)
 
-                platformObj.CFrame = CFrame.new(newX, targetY, newZ)
+                platformObj.CFrame = CFrame.new(targetX, platformY, targetZ)
             end
         else
             destroyPlatform()
