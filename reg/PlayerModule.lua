@@ -17,9 +17,16 @@ return function(playerTab, library)
     local speedEnabled = false
     local speedMethod = "Stealth (LinearVelocity)" 
     local targetSpeed = 16
+    local originalWalkSpeed = nil
 
+    local originalGravity = workspace.Gravity
+    local savedGravity = workspace.Gravity
+    local gravityEnabled = false
+
+    local originalJumpPower = 50
     local savedJumpPower = 50
-    local savedGravity = 196
+    local jumpPowerEnabled = false
+
     local smoothRate = 8
 
     local infJumpEnabled = false
@@ -30,8 +37,7 @@ return function(playerTab, library)
 
     local platformObj = nil
     local platformFollowSpeed = 60
-    local platformRiseSpeed = 40
-    local platformFallSpeed = 2
+    local platformFallSpeed = 20
     local platformHeight = 3.2
 
     local function destroyPlatform()
@@ -62,24 +68,47 @@ return function(playerTab, library)
         platformObj = plat
     end
 
+    local function setSpeed(state)
+        speedEnabled = state
+        local character = lp.Character
+        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            if state then
+                originalWalkSpeed = humanoid.WalkSpeed
+            else
+                humanoid.WalkSpeed = originalWalkSpeed or 16
+                originalWalkSpeed = nil
+            end
+        end
+        notify("Speedhack", state and ("Enabled (" .. speedMethod .. ")") or "Disabled")
+    end
+
     playerTab:AddDropdown("Speed Method", {"Stealth (LinearVelocity)", "CFrame", "WalkSpeed"}, "Stealth (LinearVelocity)", function(selected)
         speedMethod = selected
-        if lp.Character and lp.Character:FindFirstChildOfClass("Humanoid") then
-            lp.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = 16
+        local character = lp.Character
+        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+        if humanoid and not speedEnabled then
+            humanoid.WalkSpeed = originalWalkSpeed or 16
         end
     end)
 
     playerTab:AddToggle("Enable Speed", "Toggle movement speedhack", function(state)
-        speedEnabled = state
-        if not state and lp.Character and lp.Character:FindFirstChildOfClass("Humanoid") then
-            lp.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = 16
-        end
-        notify("Speedhack", state and ("Enabled (" .. speedMethod .. ")") or "Disabled")
+        setSpeed(state)
     end)
 
     playerTab:AddSlider("Speed Value", 16, 300, 16, function(val)
         targetSpeed = val
     end)
+
+    local function setInfJump(state)
+        infJumpEnabled = state
+        if state and infJumpMethod == "PlatformJump" then
+            createPlatform()
+        else
+            destroyPlatform()
+        end
+        notify("Infinite Jump", state and ("Enabled (" .. infJumpMethod .. ")") or "Disabled")
+    end
 
     playerTab:AddDropdown("InfJump Method", {"VelocityJump", "PlatformJump"}, "VelocityJump", function(selected)
         infJumpMethod = selected
@@ -99,8 +128,8 @@ return function(playerTab, library)
         local humanoid = character:FindFirstChildOfClass("Humanoid")
         if not humanoid or not hrp or humanoid.Health <= 0 then return end
 
-        if tick() - lastJump >= jumpCooldown and humanoid:GetState() ~= Enum.HumanoidStateType.Seated then
-            lastJump = tick()
+        if os.clock() - lastJump >= jumpCooldown and humanoid:GetState() ~= Enum.HumanoidStateType.Seated then
+            lastJump = os.clock()
             humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
             hrp.AssemblyLinearVelocity = Vector3.new(
                 hrp.AssemblyLinearVelocity.X,
@@ -110,36 +139,52 @@ return function(playerTab, library)
         end
     end))
 
-    local infJumpToggle = playerTab:AddToggle("Infinite Jump", "Jump infinitely in air", function(state)
-        infJumpEnabled = state
-        if state and infJumpMethod == "PlatformJump" then
-            createPlatform()
-        else
-            destroyPlatform()
-        end
-        notify("Infinite Jump", state and ("Enabled (" .. infJumpMethod .. ")") or "Disabled")
+    playerTab:AddToggle("Infinite Jump", "Jump infinitely in air", function(state)
+        setInfJump(state)
     end)
-
-    playerTab:AddSlider("Inf Jump Force", 30, 200, 50, function(val) infJumpPower = val end)
-    playerTab:AddSlider("Platform Fall Speed", 1, 10, 2, function(val) platformFallSpeed = val end)
 
     playerTab:AddBind("Toggle InfJump Key", Enum.KeyCode.J, function()
-        infJumpEnabled = not infJumpEnabled
-        if infJumpEnabled and infJumpMethod == "PlatformJump" then
-            createPlatform()
-        else
-            destroyPlatform()
-        end
-        notify("Infinite Jump", infJumpEnabled and ("Enabled (" .. infJumpMethod .. ")") or "Disabled")
+        setInfJump(not infJumpEnabled)
     end)
 
-    playerTab:AddSlider("JumpPower", 50, 500, 50, function(val) savedJumpPower = val end)
-    playerTab:AddSlider("Gravity", 0, 400, 196, function(val) savedGravity = val end)
+    playerTab:AddSlider("Inf Jump Force", 30, 200, 50, function(val)
+        infJumpPower = val
+    end)
+
+    playerTab:AddSlider("Platform Fall Speed", 1, 100, 20, function(val)
+        platformFallSpeed = val
+    end)
+
+    playerTab:AddToggle("Enable JumpPower Mod", "Override humanoid JumpPower", function(state)
+        jumpPowerEnabled = state
+        local character = lp.Character
+        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+        if not state and humanoid then
+            humanoid.JumpPower = originalJumpPower
+        end
+        notify("JumpPower Mod", state and "Enabled" or "Restored")
+    end)
+
+    playerTab:AddSlider("JumpPower", 10, 500, originalJumpPower, function(val)
+        savedJumpPower = val
+    end)
+
+    playerTab:AddToggle("Enable Gravity Mod", "Override workspace Gravity", function(state)
+        gravityEnabled = state
+        if not state then
+            workspace.Gravity = originalGravity
+        end
+        notify("Gravity Mod", state and "Enabled" or "Restored")
+    end)
+
+    playerTab:AddSlider("Gravity", 0, 400, math.floor(originalGravity), function(val)
+        savedGravity = val
+    end)
 
     library:AddConnection(rs.Heartbeat:Connect(function(dt)
         local alpha = math.clamp(dt * smoothRate, 0, 1)
 
-        if math.abs(workspace.Gravity - savedGravity) > 0.05 then
+        if gravityEnabled and math.abs(workspace.Gravity - savedGravity) > 0.05 then
             workspace.Gravity = workspace.Gravity + (savedGravity - workspace.Gravity) * alpha
         end
 
@@ -156,9 +201,11 @@ return function(playerTab, library)
             return 
         end
 
-        if not humanoid.UseJumpPower then humanoid.UseJumpPower = true end
-        if math.abs(humanoid.JumpPower - savedJumpPower) > 0.05 then
-            humanoid.JumpPower = humanoid.JumpPower + (savedJumpPower - humanoid.JumpPower) * alpha
+        if jumpPowerEnabled then
+            if not humanoid.UseJumpPower then humanoid.UseJumpPower = true end
+            if math.abs(humanoid.JumpPower - savedJumpPower) > 0.05 then
+                humanoid.JumpPower = humanoid.JumpPower + (savedJumpPower - humanoid.JumpPower) * alpha
+            end
         end
 
         if speedEnabled then
@@ -176,10 +223,6 @@ return function(playerTab, library)
                     local moveVec = humanoid.MoveDirection * targetSpeed
                     hrp.AssemblyLinearVelocity = Vector3.new(moveVec.X, currentY, moveVec.Z)
                 end
-            end
-        else
-            if humanoid.WalkSpeed ~= 16 and speedMethod ~= "WalkSpeed" then
-                humanoid.WalkSpeed = 16
             end
         end
 
@@ -200,14 +243,15 @@ return function(playerTab, library)
                 local idealY = hrpPos.Y - platformHeight
 
                 if playerVelY > 0.5 then
-                    targetY = targetY + (idealY - targetY) * math.clamp(dt * platformRiseSpeed, 0, 1)
+                    targetY = currentPos.Y
                 elseif playerVelY < -0.5 then
-                    targetY = currentPos.Y - (platformFallSpeed * dt)
-                    if targetY < idealY then
-                        targetY = idealY
+                    if idealY < currentPos.Y then
+                        targetY = math.max(idealY, currentPos.Y - (platformFallSpeed * dt))
+                    else
+                        targetY = currentPos.Y
                     end
                 else
-                    targetY = idealY
+                    targetY = currentPos.Y + (idealY - currentPos.Y) * math.clamp(dt * 8, 0, 1)
                 end
 
                 local newX = currentPos.X + (targetX - currentPos.X) * math.clamp(dt * platformFollowSpeed, 0, 1)
@@ -224,6 +268,7 @@ return function(playerTab, library)
 
     local blockedPlayers = {}
     local friendCache = {}
+    local disabledFlingParts = {} 
 
     task.spawn(function()
         for _, plr in ipairs(players:GetPlayers()) do
@@ -237,13 +282,15 @@ return function(playerTab, library)
         friendCache[plr.UserId] = nil
     end))
 
-    local flingTagObj = playerTab:AddTagList("Anti-Fling", "Name / 'All' / 'Friends'", function(input)
-        input = input:lower()
-        if input == "all" then return "All" end
-        if input == "friends" then return "Friends" end
+    local flingTagObj = playerTab:AddTagList("Anti-Fling", "Name / 'All' / 'All Except Friends'", function(input)
+        local lower = input:lower()
+        if lower == "all" then return "All" end
+        if lower == "friends" or lower == "all except friends" or lower == "nonfriends" then
+            return "All Except Friends"
+        end
 
         for _, p in ipairs(players:GetPlayers()) do
-            if p.Name:lower():sub(1, #input) == input then
+            if p.Name:lower():sub(1, #lower) == lower then
                 return p.Name
             end
         end
@@ -260,7 +307,9 @@ return function(playerTab, library)
 
     library:AddConnection(rs.Stepped:Connect(function()
         local isAll = table.find(blockedPlayers, "All")
-        local isFriends = table.find(blockedPlayers, "Friends")
+        local isAllExceptFriends = table.find(blockedPlayers, "All Except Friends") or table.find(blockedPlayers, "Friends")
+
+        local currentBlockedParts = {}
 
         for _, plr in ipairs(players:GetPlayers()) do
             if plr ~= lp and plr.Character then
@@ -269,7 +318,7 @@ return function(playerTab, library)
                     local shouldDisable = false
                     if isAll then
                         shouldDisable = true
-                    elseif isFriends and not friendCache[plr.UserId] then
+                    elseif isAllExceptFriends and not friendCache[plr.UserId] then
                         shouldDisable = true
                     elseif table.find(blockedPlayers, plr.Name) then
                         shouldDisable = true
@@ -277,15 +326,36 @@ return function(playerTab, library)
 
                     if shouldDisable then
                         for _, part in ipairs(plr.Character:GetChildren()) do
-                            if part:IsA("BasePart") then part.CanCollide = false end
+                            if part:IsA("BasePart") then
+                                part.CanCollide = false
+                                currentBlockedParts[part] = true
+                            end
                         end
                     end
                 end
             end
         end
+
+        for part in pairs(disabledFlingParts) do
+            if not currentBlockedParts[part] then
+                if part.Parent then
+                    pcall(function() part.CanCollide = true end)
+                end
+                disabledFlingParts[part] = nil
+            end
+        end
+
+        for part in pairs(currentBlockedParts) do
+            disabledFlingParts[part] = true
+        end
     end))
 
     local noclipEnabled = false
+
+    local function setNoclip(state)
+        noclipEnabled = state
+        notify("Noclip", state and "Enabled" or "Disabled")
+    end
 
     library:AddConnection(rs.Stepped:Connect(function()
         if not noclipEnabled then return end
@@ -298,14 +368,12 @@ return function(playerTab, library)
         end
     end))
 
-    local noclipToggle = playerTab:AddToggle("Noclip", "Walk through walls", function(state)
-        noclipEnabled = state
-        notify("Noclip", state and "Enabled" or "Disabled")
+    playerTab:AddToggle("Noclip", "Walk through walls", function(state)
+        setNoclip(state)
     end)
 
     playerTab:AddBind("Toggle Noclip Key", Enum.KeyCode.N, function()
-        noclipEnabled = not noclipEnabled
-        notify("Noclip", noclipEnabled and "Enabled" or "Disabled")
+        setNoclip(not noclipEnabled)
     end)
 
     playerTab:AddSection("Flight Control")
@@ -316,7 +384,10 @@ return function(playerTab, library)
     local toiletFlyConn = nil
 
     local function stopFly()
-        if toiletFlyConn then toiletFlyConn:Disconnect(); toiletFlyConn = nil end
+        if toiletFlyConn then 
+            toiletFlyConn:Disconnect()
+            toiletFlyConn = nil 
+        end
         local character = lp.Character
         if not character then return end
         local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -326,7 +397,9 @@ return function(playerTab, library)
             humanoid.PlatformStand = false
             humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
         end
-        if hrp then hrp.AssemblyLinearVelocity = Vector3.zero end
+        if hrp then 
+            hrp.AssemblyLinearVelocity = Vector3.zero 
+        end
     end
 
     local function startFly()
@@ -337,7 +410,9 @@ return function(playerTab, library)
         if not hrp or not humanoid then return end
 
         for _, v in ipairs(hrp:GetChildren()) do
-            if v:IsA("BodyMover") or v:IsA("Constraint") then v:Destroy() end
+            if v:IsA("BodyMover") or v:IsA("LinearVelocity") or v:IsA("VectorForce") then 
+                v:Destroy() 
+            end
         end
 
         humanoid.PlatformStand = true
@@ -360,7 +435,10 @@ return function(playerTab, library)
             local vtVel = 0
             if uis:IsKeyDown(Enum.KeyCode.Space) then vtVel = flyVtSpeed end
             if uis:IsKeyDown(Enum.KeyCode.LeftControl) then vtVel = -flyVtSpeed end
-            if hzMove.Magnitude == 0 and vtVel == 0 then vtVel = math.sin(tick() * 10) * 0.1 end
+            
+            if hzMove.Magnitude == 0 and vtVel == 0 then 
+                vtVel = math.sin(os.clock() * 10) * 0.1 
+            end
 
             hrp.AssemblyLinearVelocity = Vector3.new(hzMove.X, vtVel, hzMove.Z)
             hrp.RotVelocity = Vector3.zero
@@ -368,29 +446,49 @@ return function(playerTab, library)
         end))
     end
 
-    local flyToggle = playerTab:AddToggle("Fly", "Use WASD + Space/Ctrl", function(state)
+    local function setFly(state)
         flyEnabled = state
-        if state then startFly() else stopFly() end
+        if state then 
+            startFly() 
+        else 
+            stopFly() 
+        end
         notify("Flight", state and "Enabled" or "Disabled")
+    end
+
+    playerTab:AddToggle("Fly", "Use WASD + Space/Ctrl", function(state)
+        setFly(state)
     end)
 
     playerTab:AddBind("Toggle Fly Key", Enum.KeyCode.F, function()
-        flyEnabled = not flyEnabled
-        if flyEnabled then startFly() else stopFly() end
-        notify("Flight", flyEnabled and "Enabled" or "Disabled")
+        setFly(not flyEnabled)
     end)
 
     playerTab:AddSlider("Fly Horizontal Speed", 10, 300, 18, function(val) flyHzSpeed = val end)
     playerTab:AddSlider("Fly Vertical Speed", 10, 200, 30, function(val) flyVtSpeed = val end)
 
+    if lp.Character then
+        local hum = lp.Character:FindFirstChildOfClass("Humanoid")
+        if hum then
+            originalJumpPower = hum.JumpPower
+            originalWalkSpeed = hum.WalkSpeed
+        end
+    end
+
     library:AddConnection(lp.CharacterAdded:Connect(function(newChar)
         stopFly()
         destroyPlatform()
+        disabledFlingParts = {}
 
         local hum = newChar:WaitForChild("Humanoid", 5)
         if hum then
-            hum.WalkSpeed = 16
-            hum.JumpPower = savedJumpPower
+            originalJumpPower = hum.JumpPower
+            originalWalkSpeed = hum.WalkSpeed
+
+            if jumpPowerEnabled then
+                hum.UseJumpPower = true
+                hum.JumpPower = savedJumpPower
+            end
         end
 
         if flyEnabled then
