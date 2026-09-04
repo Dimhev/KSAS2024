@@ -23,9 +23,11 @@ return function(playerTab, library)
     local smoothRate = 8
 
     local infJumpEnabled = false
+    local infJumpMethod = "Velocity Jump" 
     local infJumpPower = 50
     local lastJump = 0
     local jumpCooldown = 0.12
+    local activePlatform = nil
 
     playerTab:AddDropdown("Speed Method", {"Stealth (LinearVelocity)", "CFrame", "WalkSpeed"}, "Stealth (LinearVelocity)", function(selected)
         speedMethod = selected
@@ -46,6 +48,14 @@ return function(playerTab, library)
         targetSpeed = val
     end)
 
+    playerTab:AddDropdown("InfJump Method", {"Velocity Jump", "Platform Jump"}, "Velocity Jump", function(selected)
+        infJumpMethod = selected
+        if activePlatform then
+            activePlatform:Destroy()
+            activePlatform = nil
+        end
+    end)
+
     library:AddConnection(uis.JumpRequest:Connect(function()
         if not infJumpEnabled then return end
         local character = lp.Character
@@ -57,25 +67,58 @@ return function(playerTab, library)
 
         if tick() - lastJump >= jumpCooldown and humanoid:GetState() ~= Enum.HumanoidStateType.Seated then
             lastJump = tick()
-            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-            hrp.AssemblyLinearVelocity = Vector3.new(
-                hrp.AssemblyLinearVelocity.X,
-                infJumpPower,
-                hrp.AssemblyLinearVelocity.Z
-            )
+
+            if infJumpMethod == "Velocity Jump" then
+                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                hrp.AssemblyLinearVelocity = Vector3.new(
+                    hrp.AssemblyLinearVelocity.X,
+                    infJumpPower,
+                    hrp.AssemblyLinearVelocity.Z
+                )
+            elseif infJumpMethod == "Platform Jump" then
+                if activePlatform then activePlatform:Destroy() end
+
+                local plat = Instance.new("Part")
+                plat.Name = "InfJumpTempPlatform"
+                plat.Size = Vector3.new(5, 0.6, 5)
+                plat.CFrame = hrp.CFrame * CFrame.new(0, -3.2, 0)
+                plat.Anchored = true
+                plat.CanCollide = true
+                plat.Transparency = 1
+                plat.Material = Enum.Material.SmoothPlastic
+                plat.Parent = workspace
+
+                activePlatform = plat
+                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+
+                task.delay(0.2, function()
+                    if plat and plat.Parent then
+                        plat:Destroy()
+                    end
+                    if activePlatform == plat then activePlatform = nil end
+                end)
+            end
         end
     end))
 
     local infJumpToggle = playerTab:AddToggle("Infinite Jump", "Jump infinitely in air", function(state)
         infJumpEnabled = state
-        notify("Infinite Jump", state and "Enabled" or "Disabled")
+        if not state and activePlatform then
+            activePlatform:Destroy()
+            activePlatform = nil
+        end
+        notify("Infinite Jump", state and ("Enabled (" .. infJumpMethod .. ")") or "Disabled")
     end)
 
     playerTab:AddSlider("Inf Jump Force", 30, 200, 50, function(val) infJumpPower = val end)
 
     playerTab:AddBind("Toggle InfJump Key", Enum.KeyCode.J, function()
         infJumpEnabled = not infJumpEnabled
-        notify("Infinite Jump", infJumpEnabled and "Enabled" or "Disabled")
+        if not infJumpEnabled and activePlatform then
+            activePlatform:Destroy()
+            activePlatform = nil
+        end
+        notify("Infinite Jump", infJumpEnabled and ("Enabled (" .. infJumpMethod .. ")") or "Disabled")
     end)
 
     playerTab:AddSlider("JumpPower", 50, 500, 50, function(val) savedJumpPower = val end)
@@ -102,13 +145,11 @@ return function(playerTab, library)
         if speedEnabled then
             if speedMethod == "WalkSpeed" then
                 humanoid.WalkSpeed = targetSpeed
-
             elseif speedMethod == "CFrame" then
                 humanoid.WalkSpeed = 16
                 if humanoid.MoveDirection.Magnitude > 0 then
                     hrp.CFrame = hrp.CFrame + (humanoid.MoveDirection * ((targetSpeed - 16) * dt))
                 end
-
             elseif speedMethod == "Stealth (LinearVelocity)" then
                 humanoid.WalkSpeed = 16
                 if humanoid.MoveDirection.Magnitude > 0 then
@@ -168,18 +209,21 @@ return function(playerTab, library)
 
         for _, plr in ipairs(players:GetPlayers()) do
             if plr ~= lp and plr.Character then
-                local shouldDisable = false
-                if isAll then
-                    shouldDisable = true
-                elseif isFriends and not friendCache[plr.UserId] then
-                    shouldDisable = true
-                elseif table.find(blockedPlayers, plr.Name) then
-                    shouldDisable = true
-                end
+                local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+                if hum and hum.Health > 0 then
+                    local shouldDisable = false
+                    if isAll then
+                        shouldDisable = true
+                    elseif isFriends and not friendCache[plr.UserId] then
+                        shouldDisable = true
+                    elseif table.find(blockedPlayers, plr.Name) then
+                        shouldDisable = true
+                    end
 
-                if shouldDisable then
-                    for _, part in ipairs(plr.Character:GetChildren()) do
-                        if part:IsA("BasePart") then part.CanCollide = false end
+                    if shouldDisable then
+                        for _, part in ipairs(plr.Character:GetChildren()) do
+                            if part:IsA("BasePart") then part.CanCollide = false end
+                        end
                     end
                 end
             end
@@ -287,6 +331,11 @@ return function(playerTab, library)
     library:AddConnection(lp.CharacterAdded:Connect(function(newChar)
         stopFly()
         
+        if activePlatform then
+            activePlatform:Destroy()
+            activePlatform = nil
+        end
+
         local hum = newChar:WaitForChild("Humanoid", 5)
         if hum then
             hum.WalkSpeed = 16
